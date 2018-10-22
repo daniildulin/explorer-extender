@@ -1,0 +1,15 @@
+version: '3.6'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    ports:
+        - 54325:5432
+    environment:
+        POSTGRES_DB: explorer_db
+        POSTGRES_USER: explorer_adm
+        POSTGRES_PASSWORD: password
+    volumes:
+        - ./db_data:/var/lib/postgresql/data
+
