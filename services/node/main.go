@@ -1,11 +1,13 @@
 package node
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
+	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
 	"log"
 	"net/http"
@@ -77,7 +79,7 @@ func getLastBlockFromDB(db *gorm.DB) uint {
 // Store data to DB
 func storeDataToDb(config env.Config, db *gorm.DB, blockHeight uint) error {
 	apiLink := getApiLink(config) + `/api/block/` + fmt.Sprint(blockHeight)
-	blockResponse := blockResponse{}
+	blockResponse := BlockResponse{}
 	getJson(apiLink, &blockResponse)
 	blockResult := blockResponse.Result
 
@@ -90,11 +92,10 @@ func storeDataToDb(config env.Config, db *gorm.DB, blockHeight uint) error {
 	return nil
 }
 
-func storeBlockToDB(db *gorm.DB, blockData *blockResult) {
+func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
 
 	if blockData.Height <= 0 {
 		return
-		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Height, blockData.TxCount, blockData.Hash)
 	}
 
 	blockModel := models.Block{
@@ -107,6 +108,10 @@ func storeBlockToDB(db *gorm.DB, blockData *blockResult) {
 		Size:        blockData.Size,
 		BlockTime:   getBlockTime(db, blockData.Height, blockData.Time),
 		BlockReward: blockData.BlockReward,
+	}
+
+	if blockModel.TxCount > 0 {
+		blockModel.Transactions = getTransactionModelsFromApiData(blockData)
 	}
 
 	db.Create(&blockModel)
@@ -127,4 +132,91 @@ func getBlockTime(db *gorm.DB, currentBlockHeight uint, blockTime time.Time) flo
 	}
 
 	return result.Seconds()
+}
+
+func getTransactionModelsFromApiData(blockData *BlockResult) []models.Transaction {
+
+	var result = make([]models.Transaction, blockData.TxCount)
+
+	for i, tx := range blockData.Transactions {
+
+		status := tx.Log == nil
+		payload, _ := base64.StdEncoding.DecodeString(tx.Payload)
+
+		result[i] = models.Transaction{
+			Hash:                 strings.Title(tx.Hash),
+			From:                 strings.Title(tx.From),
+			Type:                 tx.Type,
+			Nonce:                tx.Nonce,
+			GasPrice:             tx.GasPrice,
+			Fee:                  tx.Gas,
+			Payload:              strip.StripTags(string(payload[:])),
+			ServiceData:          strip.StripTags(tx.ServiceData),
+			CreatedAt:            blockData.Time,
+			To:                   tx.Data.To,
+			Address:              tx.Data.Address,
+			Name:                 stripHtmlTags(tx.Data.Name),
+			Stake:                tx.Data.Stake,
+			Value:                tx.Data.Value,
+			Commission:           tx.Data.Commission,
+			InitialAmount:        tx.Data.InitialAmount,
+			InitialReserve:       tx.Data.InitialReserve,
+			ConstantReserveRatio: tx.Data.ConstantReserveRatio,
+			RawCheck:             tx.Data.RawCheck,
+			Proof:                tx.Data.Proof,
+			Coin:                 stripHtmlTags(tx.Data.Coin),
+			PubKey:               tx.Data.PubKey,
+			Status:               status,
+			Threshold:            tx.Data.Threshold,
+		}
+
+		var tags []models.TxTag
+		if tx.Tags != nil {
+			for k, tg := range tx.Tags {
+				tags = append(tags, models.TxTag{
+					Key:   k,
+					Value: tg,
+				})
+			}
+			result[i].Tags = tags
+		}
+
+		if tx.Type == models.TX_TYPE_CREATE_COIN {
+			result[i].Coin = tx.Data.Symbol
+		}
+
+		if tx.Type == models.TX_TYPE_SELL_COIN {
+			result[i].ValueToSell = tx.Data.ValueToSell
+			result[i].ValueToBuy = getValueFromTxTag(tags, `tx.return`)
+		}
+		if tx.Type == models.TX_TYPE_SELL_ALL_COIN {
+			result[i].ValueToSell = getValueFromTxTag(tags, `tx.sell_amount`)
+			result[i].ValueToBuy = getValueFromTxTag(tags, `tx.return`)
+		}
+		if tx.Type == models.TX_TYPE_BUY_COIN {
+			result[i].ValueToSell = getValueFromTxTag(tags, `tx.return`)
+			result[i].ValueToBuy = tx.Data.ValueToBuy
+		}
+	}
+
+	return result
+}
+
+func stripHtmlTags(str *string) *string {
+	var s string
+	if str != nil {
+		s = *str
+		s = strip.StripTags(s)
+	}
+	return &s
+}
+
+func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
+	for _, tag := range tags {
+		if tag.Key == tagName {
+			return &tag.Value
+		}
+	}
+
+	return nil
 }
