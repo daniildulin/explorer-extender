@@ -18,6 +18,10 @@ import (
 
 var httpClient = &http.Client{Timeout: 1 * time.Second}
 
+type events struct {
+	Rewards []models.Reward
+}
+
 func Run(config env.Config, db *gorm.DB) {
 
 	currentDBBlock := getLastBlockFromDB(db) + 1
@@ -46,7 +50,7 @@ func Run(config env.Config, db *gorm.DB) {
 }
 
 func getApiLink(config env.Config) string {
-	return `http://` + config.GetString("minterApi")
+	return `https://` + config.GetString("minterApi")
 }
 
 //Get JSON response from API
@@ -112,6 +116,11 @@ func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
 
 	if blockModel.TxCount > 0 {
 		blockModel.Transactions = getTransactionModelsFromApiData(blockData)
+	}
+
+	if blockData.Events != nil {
+		e := getEventsModelsFromApiData(blockData)
+		blockModel.Rewards = e.Rewards
 	}
 
 	db.Create(&blockModel)
@@ -219,4 +228,26 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 	}
 
 	return nil
+}
+
+func getEventsModelsFromApiData(blockData *BlockResult) events {
+
+	rewards := make([]models.Reward, len(blockData.Events))
+
+	for i, event := range blockData.Events {
+
+		if event.Type == `minter/RewardEvent` {
+			rewards[i] = models.Reward{
+				Role:        event.Value.Role,
+				Amount:      event.Value.Amount,
+				Address:     event.Value.Address,
+				ValidatorPk: event.Value.ValidatorPubKey,
+			}
+		}
+	}
+
+	return events{
+		Rewards: rewards,
+	}
+
 }

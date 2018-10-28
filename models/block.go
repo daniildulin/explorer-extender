@@ -17,4 +17,5 @@ type Block struct {
 	UpdatedAt    time.Time
 	DeletedAt    *time.Time
 	Transactions []Transaction
+	Rewards      []Reward
 }

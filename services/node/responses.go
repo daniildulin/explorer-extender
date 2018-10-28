@@ -29,6 +29,7 @@ type BlockResult struct {
 	Size         uint          `json:"size"`
 	Time         time.Time     `json:"time"`
 	Transactions []transaction `json:"transactions"`
+	Events       []event       `json:"events"`
 }
 
 type transaction struct {
@@ -69,4 +70,16 @@ type transactionData struct {
 	ToCoinSymbol         *string `json:"to_coin_symbol"`
 	FromCoinSymbol       *string `json:"from_coin_symbol"`
 	Threshold            *uint   `json:"threshold"`
+}
+
+type event struct {
+	Type  string     `json:"type"`
+	Value eventValue `json:"value"`
+}
+
+type eventValue struct {
+	Role            string `json:"role"`
+	Address         string `json:"address"`
+	Amount          string `json:"amount"`
+	ValidatorPubKey string `json:"validator_pub_key"`
 }
