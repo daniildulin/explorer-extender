@@ -18,4 +18,5 @@ type Block struct {
 	DeletedAt    *time.Time
 	Transactions []Transaction
 	Rewards      []Reward
+	Slashes      []Slash
 }

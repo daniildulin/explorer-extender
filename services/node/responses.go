@@ -79,6 +79,7 @@ type event struct {
 
 type eventValue struct {
 	Role            string `json:"role"`
+	Coin            string `json:"coin"`
 	Address         string `json:"address"`
 	Amount          string `json:"amount"`
 	ValidatorPubKey string `json:"validator_pub_key"`

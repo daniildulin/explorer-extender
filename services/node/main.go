@@ -20,16 +20,14 @@ var httpClient = &http.Client{Timeout: 1 * time.Second}
 
 type events struct {
 	Rewards []models.Reward
+	Slashes []models.Slash
 }
 
 func Run(config env.Config, db *gorm.DB) {
 
 	currentDBBlock := getLastBlockFromDB(db) + 1
-
 	lastApiBlock := getLastBlockFromMinterAPI(config)
-
 	log.Printf("Connect to %s", config.GetString("minterApi"))
-
 	log.Printf("Start from block %d", currentDBBlock)
 
 	for {
@@ -50,7 +48,16 @@ func Run(config env.Config, db *gorm.DB) {
 }
 
 func getApiLink(config env.Config) string {
-	return `https://` + config.GetString("minterApi")
+
+	protocol := `http`
+
+	if config.GetBool(`minterApi.isSecure`) {
+		protocol += `s://`
+	} else {
+		protocol += `://`
+	}
+
+	return protocol + config.GetString("minterApi.link") + `:` + config.GetString("minterApi.port")
 }
 
 //Get JSON response from API
@@ -121,6 +128,7 @@ func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
 	if blockData.Events != nil {
 		e := getEventsModelsFromApiData(blockData)
 		blockModel.Rewards = e.Rewards
+		blockModel.Slashes = e.Slashes
 	}
 
 	db.Create(&blockModel)
@@ -232,22 +240,29 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 
 func getEventsModelsFromApiData(blockData *BlockResult) events {
 
-	rewards := make([]models.Reward, len(blockData.Events))
+	var rewards []models.Reward
+	var slashes []models.Slash
 
-	for i, event := range blockData.Events {
+	for _, event := range blockData.Events {
 
 		if event.Type == `minter/RewardEvent` {
-			rewards[i] = models.Reward{
+			rewards = append(rewards, models.Reward{
 				Role:        event.Value.Role,
 				Amount:      event.Value.Amount,
 				Address:     event.Value.Address,
 				ValidatorPk: event.Value.ValidatorPubKey,
-			}
+			})
+		} else if event.Type == `minter/SlashEvent` {
+			slashes = append(slashes, models.Slash{
+				Coin:        event.Value.Coin,
+				Amount:      event.Value.Amount,
+				Address:     event.Value.Address,
+				ValidatorPk: event.Value.ValidatorPubKey,
+			})
 		}
 	}
-
 	return events{
 		Rewards: rewards,
+		Slashes: slashes,
 	}
-
 }
