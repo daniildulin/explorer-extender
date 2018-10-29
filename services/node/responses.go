@@ -20,6 +20,11 @@ type BlockResponse struct {
 	Result BlockResult `json:"result"`
 }
 
+type ValidatorsResponse struct {
+	Code   uint        `json:"code"`
+	Result []validator `json:"result"`
+}
+
 type BlockResult struct {
 	Hash         string        `json:"hash"`
 	Height       uint          `json:"height"`
@@ -83,4 +88,27 @@ type eventValue struct {
 	Address         string `json:"address"`
 	Amount          string `json:"amount"`
 	ValidatorPubKey string `json:"validator_pub_key"`
+}
+
+type validator struct {
+	AccumulatedReward string `json:"accumulated_reward"`
+	AbsentTimes       uint   `json:"absent_times"`
+	Candidate         candidate
+}
+
+type candidate struct {
+	CandidateAddress string `json:"candidate_address"`
+	TotalStake       string `json:"total_stake"`
+	PubKey           string `json:"pub_key"`
+	Commission       uint   `json:"commission"`
+	CreatedAtBlock   uint   `json:"created_at_block"`
+	Status           byte   `json:"status"`
+	Stakes           []stake
+}
+
+type stake struct {
+	Owner    string `json:"owner"`
+	Coin     string `json:"coin"`
+	Value    string `json:"value"`
+	BipValue string `json:"bip_value"`
 }
