@@ -7,6 +7,7 @@ import (
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
+	"github.com/daniildulin/explorer-extender/services/coins"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
 	"log"
@@ -18,6 +19,8 @@ import (
 
 var httpClient = &http.Client{Timeout: 1 * time.Second}
 
+var coinChan = make(chan models.Coin)
+
 type events struct {
 	Rewards []models.Reward
 	Slashes []models.Slash
@@ -25,12 +28,14 @@ type events struct {
 
 func Run(config env.Config, db *gorm.DB) {
 
-	currentDBBlock := getLastBlockFromDB(db) + 1
+	go coins.Store(coinChan, db)
+
+	currentDBBlock := getLastBlockFromDB(db)
 	lastApiBlock := getLastBlockFromMinterAPI(config)
 	log.Printf("Connect to %s", config.GetString("minterApi.link"))
 	log.Printf("Start from block %d", currentDBBlock)
 
-	deleteBlockData(db, currentDBBlock-1)
+	deleteBlockData(db, currentDBBlock)
 
 	for {
 		if currentDBBlock <= lastApiBlock {
@@ -233,6 +238,7 @@ func getTransactionModelsFromApiData(blockData *BlockResult) []models.Transactio
 
 		if tx.Type == models.TX_TYPE_CREATE_COIN {
 			result[i].Coin = tx.Data.Symbol
+			go coins.CreateFromTransaction(coinChan, result[i])
 		}
 
 		if tx.Type == models.TX_TYPE_SELL_COIN {
@@ -332,5 +338,4 @@ func getValidatorModels(db *gorm.DB, validatorsData []validator) []models.Valida
 
 	}
 	return result
-
 }

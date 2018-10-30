@@ -16,6 +16,7 @@ func Migrate(db *gorm.DB) {
 		&models.Reward{},
 		&models.Slash{},
 		&models.Validator{},
+		&models.Coin{},
 	)
 
 	db.Exec("CREATE TABLE IF NOT EXISTS block_validator (block_id INT REFERENCES blocks (id) ON DELETE CASCADE, validator_id INT REFERENCES validators (id) ON DELETE CASCADE)")
