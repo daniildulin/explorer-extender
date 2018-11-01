@@ -1,6 +1,7 @@
 {
   "name": "Minter Explorer Extender",
   "debug": true,
+  "baseCoin": "BIP",
   "database": {
     "url": "postgres://postgres:postgres@localhost/postgres?sslmode=disable"
   },

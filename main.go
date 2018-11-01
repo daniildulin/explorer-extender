@@ -6,11 +6,13 @@ import (
 	"github.com/daniildulin/explorer-extender/database"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
-	"github.com/daniildulin/explorer-extender/services/node"
+	"github.com/daniildulin/explorer-extender/services/minter_api"
+	"github.com/daniildulin/explorer-extender/services/minter_service"
 	"github.com/jinzhu/gorm"
-	"os"
-
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"net/http"
+	"os"
+	"time"
 )
 
 var Version string   // Version
@@ -45,5 +47,19 @@ func main() {
 	db.LogMode(config.GetBool(`debug`))
 	database.Migrate(db)
 
-	node.Run(config, db)
+	minterApi := minter_api.New(config, db, &http.Client{Timeout: 10 * time.Second})
+	minterService := minter_service.New(config, db, minterApi)
+
+	for {
+		if minterService.GetActiveNodesCount() > 0 {
+			minterService.Run()
+		} else {
+			if config.GetBool(`debug`) {
+				fmt.Println(`Waiting for available node`)
+			}
+			minterService.UpdateApiNodesList()
+			time.Sleep(5 * time.Second)
+		}
+	}
+
 }

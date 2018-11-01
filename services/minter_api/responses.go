@@ -1,11 +1,16 @@
-package node
+package minter_api
 
 import (
 	"time"
 )
 
+type Response struct {
+	Code uint    `json:"code"`
+	Log  *string `json:"log"`
+}
+
 type StatusResponse struct {
-	Code   uint         `json:"code"`
+	Response
 	Result StatusResult `json:"result"`
 }
 
@@ -16,13 +21,13 @@ type StatusResult struct {
 }
 
 type BlockResponse struct {
-	Code   uint        `json:"code"`
+	Response
 	Result BlockResult `json:"result"`
 }
 
 type ValidatorsResponse struct {
-	Code   uint        `json:"code"`
-	Result []validator `json:"result"`
+	Response
+	Result []Validator `json:"result"`
 }
 
 type BlockResult struct {
@@ -90,7 +95,7 @@ type eventValue struct {
 	ValidatorPubKey string `json:"validator_pub_key"`
 }
 
-type validator struct {
+type Validator struct {
 	AccumulatedReward string `json:"accumulated_reward"`
 	AbsentTimes       uint   `json:"absent_times"`
 	Candidate         candidate

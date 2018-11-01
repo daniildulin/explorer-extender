@@ -1,23 +1,19 @@
-package node
+package minter_service
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
 	"github.com/daniildulin/explorer-extender/services/coins"
+	"github.com/daniildulin/explorer-extender/services/minter_api"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
 	"log"
-	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
-
-var httpClient = &http.Client{Timeout: 1 * time.Second}
 
 var coinChan = make(chan models.Coin)
 
@@ -26,99 +22,86 @@ type events struct {
 	Slashes []models.Slash
 }
 
-func Run(config env.Config, db *gorm.DB) {
+type MinterService struct {
+	db     *gorm.DB
+	config env.Config
+	api    *minter_api.MinterApi
+}
 
-	go coins.Store(coinChan, db)
+func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi) *MinterService {
+	return &MinterService{
+		db:     db,
+		config: config,
+		api:    minterApi,
+	}
+}
 
-	currentDBBlock := getLastBlockFromDB(db)
-	lastApiBlock := getLastBlockFromMinterAPI(config)
-	log.Printf("Connect to %s", config.GetString("minterApi.link"))
+func (ms *MinterService) Run() {
+
+	go coins.Store(coinChan, ms.db)
+
+	currentDBBlock := ms.getLastBlockFromDB()
+	lastApiBlock, _ := ms.api.GetLastBlock()
+
+	log.Printf("Connect to %s", ms.config.GetString("minterApi.link"))
 	log.Printf("Start from block %d", currentDBBlock)
 
-	deleteBlockData(db, currentDBBlock)
+	if currentDBBlock > 0 {
+		ms.deleteBlockData(currentDBBlock)
+	} else {
+		currentDBBlock = 1
+	}
 
 	for {
 		if currentDBBlock <= lastApiBlock {
 			start := time.Now()
-			storeDataToDb(config, db, currentDBBlock)
+			ms.storeDataToDb(currentDBBlock)
 			elapsed := time.Since(start)
 			currentDBBlock++
-
-			if config.GetBool(`debug`) {
+			if ms.config.GetBool(`debug`) {
 				log.Printf("Time of processing %s for block %s", elapsed, fmt.Sprint(currentDBBlock))
 			}
-
 		} else {
-			lastApiBlock = getLastBlockFromMinterAPI(config)
+			lastApiBlock, _ = ms.api.GetLastBlock()
 		}
 	}
 }
 
-func getApiLink(config env.Config) string {
-
-	protocol := `http`
-
-	if config.GetBool(`minterApi.isSecure`) {
-		protocol += `s://`
-	} else {
-		protocol += `://`
-	}
-
-	return protocol + config.GetString("minterApi.link") + `:` + config.GetString("minterApi.port")
+func (ms *MinterService) GetActiveNodesCount() int {
+	return ms.api.GetActiveNodesCount()
 }
 
-//Get JSON response from API
-func getJson(url string, target interface{}) error {
-
-	r, err := httpClient.Get(url)
-
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(target)
+func (ms *MinterService) UpdateApiNodesList() {
+	ms.api.GetActualNodes()
 }
 
-// Get last block height from Minter API
-func getLastBlockFromMinterAPI(config env.Config) uint {
-	statusResponse := StatusResponse{}
-	link := getApiLink(config) + `/api/status`
-	getJson(link, &statusResponse)
-	u64, err := strconv.ParseUint(statusResponse.Result.LatestBlockHeight, 10, 32)
-	helpers.CheckErr(err)
-	return uint(u64)
-}
-
-func getLastBlockFromDB(db *gorm.DB) uint {
+func (ms *MinterService) getLastBlockFromDB() uint {
 	var b models.Block
-	db.Last(&b)
+	ms.db.Last(&b)
 	return b.Height
 }
 
-func deleteBlockData(db *gorm.DB, blockHeight uint) {
+func (ms *MinterService) deleteBlockData(blockHeight uint) {
 	if blockHeight > 0 {
-		db.Exec(`DELETE FROM blocks WHERE id=?`, blockHeight)
+		ms.db.Exec(`DELETE FROM blocks WHERE id=?`, blockHeight)
 	}
 }
 
 // Store data to DB
-func storeDataToDb(config env.Config, db *gorm.DB, blockHeight uint) error {
-	apiLink := getApiLink(config) + `/api/block/` + fmt.Sprint(blockHeight)
-	blockResponse := BlockResponse{}
-	getJson(apiLink, &blockResponse)
-	blockResult := blockResponse.Result
-
-	storeBlockToDB(db, &blockResult)
-	go storeBlockValidators(config, db, blockHeight)
-
-	if config.GetBool(`debug`) {
-		log.Printf("Block: %d; Txs: %d; Hash: %s", blockResult.Height, blockResult.TxCount, blockResponse.Result.Hash)
+func (ms *MinterService) storeDataToDb(blockHeight uint) error {
+	blockData, err := ms.api.GetBlock(blockHeight)
+	if err != nil {
+		return err
 	}
-
+	ms.storeBlockToDB(&blockData.Result)
+	go ms.storeBlockValidators(blockHeight)
+	if ms.config.GetBool(`debug`) {
+		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
+	}
 	return nil
 }
 
-func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
+func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 
 	if blockData.Height <= 0 {
 		return
@@ -132,7 +115,7 @@ func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
 		CreatedAt:   blockData.Time,
 		Timestamp:   blockData.Time.UnixNano(),
 		Size:        blockData.Size,
-		BlockTime:   getBlockTime(db, blockData.Height, blockData.Time),
+		BlockTime:   ms.getBlockTime(blockData.Height, blockData.Time),
 		BlockReward: blockData.BlockReward,
 	}
 
@@ -146,40 +129,39 @@ func storeBlockToDB(db *gorm.DB, blockData *BlockResult) {
 		blockModel.Slashes = e.Slashes
 	}
 
-	db.Create(&blockModel)
+	ms.db.Create(&blockModel)
 }
 
-func storeBlockValidators(config env.Config, db *gorm.DB, blockHeight uint) {
-	apiLink := getApiLink(config) + `/api/block/` + fmt.Sprint(blockHeight)
+func (ms *MinterService) storeBlockValidators(blockHeight uint) {
 
-	validatorsResponse := ValidatorsResponse{}
-	apiLink = getApiLink(config) + `/api/validators/?height=` + fmt.Sprint(blockHeight)
-	getJson(apiLink, &validatorsResponse)
-	validators := getValidatorModels(db, validatorsResponse.Result)
+	response, err := ms.api.GetBlockValidators(blockHeight)
+	helpers.CheckErr(err)
+
+	validators := ms.getValidatorModels(response.Result)
 
 	var block models.Block
-	db.First(&block, blockHeight)
+	ms.db.First(&block, blockHeight)
 
 	// begin a transaction
 	for _, v := range validators {
 		if v.ID != 0 {
-			db.Save(&v)
-			db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
+			ms.db.Save(&v)
+			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
 		} else {
-			db.Create(&v)
-			db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
+			ms.db.Create(&v)
+			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
 		}
 	}
 }
 
-func getBlockTime(db *gorm.DB, currentBlockHeight uint, blockTime time.Time) float64 {
+func (ms *MinterService) getBlockTime(currentBlockHeight uint, blockTime time.Time) float64 {
 
 	if currentBlockHeight == 1 {
 		return 1
 	}
 
 	var b models.Block
-	db.Where("height = ?", currentBlockHeight-1).First(&b)
+	ms.db.Where("height = ?", currentBlockHeight-1).First(&b)
 
 	result := blockTime.Sub(b.CreatedAt)
 	if result < 0 {
@@ -189,7 +171,41 @@ func getBlockTime(db *gorm.DB, currentBlockHeight uint, blockTime time.Time) flo
 	return result.Seconds()
 }
 
-func getTransactionModelsFromApiData(blockData *BlockResult) []models.Transaction {
+func (ms *MinterService) getValidatorModels(validatorsData []minter_api.Validator) []models.Validator {
+
+	var result []models.Validator
+
+	for _, v := range validatorsData {
+
+		var vld models.Validator
+
+		ms.db.Where("public_key = ?", v.Candidate.PubKey).First(&vld)
+
+		if vld.ID == 0 {
+			result = append(result, models.Validator{
+				Name:              nil,
+				AccumulatedReward: v.AccumulatedReward,
+				AbsentTimes:       v.AbsentTimes,
+				Address:           v.Candidate.CandidateAddress,
+				TotalStake:        v.Candidate.TotalStake,
+				PublicKey:         v.Candidate.PubKey,
+				Commission:        v.Candidate.Commission,
+				CreatedAtBlock:    v.Candidate.CreatedAtBlock,
+				Status:            v.Candidate.Status,
+			})
+		} else if vld.ID != 0 {
+			vld.TotalStake = v.Candidate.TotalStake
+			vld.AccumulatedReward = v.AccumulatedReward
+			vld.AbsentTimes = v.AbsentTimes
+			vld.Status = v.Candidate.Status
+			result = append(result, vld)
+		}
+
+	}
+	return result
+}
+
+func getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models.Transaction {
 
 	var result = make([]models.Transaction, blockData.TxCount)
 
@@ -277,7 +293,7 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 	return nil
 }
 
-func getEventsModelsFromApiData(blockData *BlockResult) events {
+func getEventsModelsFromApiData(blockData *minter_api.BlockResult) events {
 
 	var rewards []models.Reward
 	var slashes []models.Slash
@@ -304,38 +320,4 @@ func getEventsModelsFromApiData(blockData *BlockResult) events {
 		Rewards: rewards,
 		Slashes: slashes,
 	}
-}
-
-func getValidatorModels(db *gorm.DB, validatorsData []validator) []models.Validator {
-
-	var result []models.Validator
-
-	for _, v := range validatorsData {
-
-		var vld models.Validator
-
-		db.Where("public_key = ?", v.Candidate.PubKey).First(&vld)
-
-		if vld.ID == 0 {
-			result = append(result, models.Validator{
-				Name:              nil,
-				AccumulatedReward: v.AccumulatedReward,
-				AbsentTimes:       v.AbsentTimes,
-				Address:           v.Candidate.CandidateAddress,
-				TotalStake:        v.Candidate.TotalStake,
-				PublicKey:         v.Candidate.PubKey,
-				Commission:        v.Candidate.Commission,
-				CreatedAtBlock:    v.Candidate.CreatedAtBlock,
-				Status:            v.Candidate.Status,
-			})
-		} else if vld.ID != 0 {
-			vld.TotalStake = v.Candidate.TotalStake
-			vld.AccumulatedReward = v.AccumulatedReward
-			vld.AbsentTimes = v.AbsentTimes
-			vld.Status = v.Candidate.Status
-			result = append(result, vld)
-		}
-
-	}
-	return result
 }
