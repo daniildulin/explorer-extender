@@ -25,7 +25,7 @@ func Migrate(db *gorm.DB) {
 	db.Model(&models.Transaction{}).AddForeignKey("block_id", "blocks(id)", "CASCADE", "RESTRICT")
 	db.Model(&models.Reward{}).AddForeignKey("block_id", "blocks(id)", "CASCADE", "RESTRICT")
 	db.Model(&models.Slash{}).AddForeignKey("block_id", "blocks(id)", "CASCADE", "RESTRICT")
-	db.Model(&models.TxTag{}).AddForeignKey("transaction_id", "transaction(id)", "CASCADE", "RESTRICT")
+	db.Model(&models.TxTag{}).AddForeignKey("transaction_id", "transactions(id)", "CASCADE", "RESTRICT")
 
 	db.Exec(`CREATE INDEX IF NOT EXISTS blocks_date_trunc_day_index ON blocks (date_trunc('day', created_at at time zone 'UTC'));`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS blocks_date_trunc_hour_index ON blocks (date_trunc('hour', created_at at time zone 'UTC'));`)

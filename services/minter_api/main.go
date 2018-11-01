@@ -80,6 +80,20 @@ func (api *MinterApi) GetBlockValidators(blockHeight uint) (*ValidatorsResponse,
 	return nil, err
 }
 
+func (api *MinterApi) GetCoinInfo(coin string) (*CoinInfoResponse, error) {
+	var err error
+	response := CoinInfoResponse{}
+	api.checkNodes()
+	for _, node := range api.nodes {
+		link := node.GetFullLink() + `/api/coinInfo/` + coin
+		api.getJson(link, &response)
+		if err == nil && response.Log == nil {
+			return &response, nil
+		}
+	}
+	return &response, err
+}
+
 func (api *MinterApi) getJson(url string, target interface{}) error {
 	r, err := api.httpClient.Get(url)
 	if err != nil {

@@ -64,6 +64,7 @@ func (ms *MinterService) Run() {
 		} else {
 			lastApiBlock, _ = ms.api.GetLastBlock()
 		}
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
@@ -94,7 +95,7 @@ func (ms *MinterService) storeDataToDb(blockHeight uint) error {
 		return err
 	}
 	ms.storeBlockToDB(&blockData.Result)
-	go ms.storeBlockValidators(blockHeight)
+	ms.storeBlockValidators(blockHeight)
 	if ms.config.GetBool(`debug`) {
 		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
 	}
@@ -120,7 +121,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 	}
 
 	if blockModel.TxCount > 0 {
-		blockModel.Transactions = getTransactionModelsFromApiData(blockData)
+		blockModel.Transactions = ms.getTransactionModelsFromApiData(blockData)
 	}
 
 	if blockData.Events != nil {
@@ -205,7 +206,7 @@ func (ms *MinterService) getValidatorModels(validatorsData []minter_api.Validato
 	return result
 }
 
-func getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models.Transaction {
+func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models.Transaction {
 
 	var result = make([]models.Transaction, blockData.TxCount)
 
@@ -214,12 +215,13 @@ func getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models
 		status := tx.Log == nil
 		payload, _ := base64.StdEncoding.DecodeString(tx.Payload)
 
-		result[i] = models.Transaction{
+		transaction := models.Transaction{
 			Hash:                 strings.Title(tx.Hash),
 			From:                 strings.Title(tx.From),
 			Type:                 tx.Type,
 			Nonce:                tx.Nonce,
 			GasPrice:             tx.GasPrice,
+			GasCoin:              &tx.GasCoin,
 			Fee:                  tx.Gas,
 			Payload:              strip.StripTags(string(payload[:])),
 			ServiceData:          strip.StripTags(tx.ServiceData),
@@ -227,6 +229,8 @@ func getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models
 			To:                   tx.Data.To,
 			Address:              tx.Data.Address,
 			Name:                 stripHtmlTags(tx.Data.Name),
+			CoinToSell:           tx.Data.CoinToSell,
+			CoinToBuy:            tx.Data.CoinToBuy,
 			Stake:                tx.Data.Stake,
 			Value:                tx.Data.Value,
 			Commission:           tx.Data.Commission,
@@ -249,29 +253,65 @@ func getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models
 					Value: tg,
 				})
 			}
-			result[i].Tags = tags
+			transaction.Tags = tags
 		}
 
 		if tx.Type == models.TX_TYPE_CREATE_COIN {
-			result[i].Coin = tx.Data.Symbol
-			go coins.CreateFromTransaction(coinChan, result[i])
+			transaction.Coin = tx.Data.Symbol
+			go coins.CreateFromTransaction(coinChan, transaction)
 		}
 
 		if tx.Type == models.TX_TYPE_SELL_COIN {
-			result[i].ValueToSell = tx.Data.ValueToSell
-			result[i].ValueToBuy = getValueFromTxTag(tags, `tx.return`)
+			transaction.ValueToSell = tx.Data.ValueToSell
+			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
 		if tx.Type == models.TX_TYPE_SELL_ALL_COIN {
-			result[i].ValueToSell = getValueFromTxTag(tags, `tx.sell_amount`)
-			result[i].ValueToBuy = getValueFromTxTag(tags, `tx.return`)
+			transaction.ValueToSell = getValueFromTxTag(tags, `tx.sell_amount`)
+			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
 		if tx.Type == models.TX_TYPE_BUY_COIN {
-			result[i].ValueToSell = getValueFromTxTag(tags, `tx.return`)
-			result[i].ValueToBuy = tx.Data.ValueToBuy
+			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
+			transaction.ValueToBuy = tx.Data.ValueToBuy
 		}
+
+		go ms.updateCoins(&transaction)
+
+		result[i] = transaction
 	}
 
 	return result
+}
+
+func (ms *MinterService) updateCoins(tx *models.Transaction) {
+	for _, coin := range []*string{tx.GasCoin, tx.CoinToSell, tx.CoinToBuy} {
+		ms.updateCoin(coin)
+	}
+}
+
+func (ms *MinterService) updateCoin(coin *string) {
+
+	if coin == nil || *coin == ms.config.GetString(`baseCoin`) {
+		return
+	}
+
+	data, err := ms.api.GetCoinInfo(*coin)
+
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	if data.Code == 404 {
+		ms.db.Exec(`DELETE FROM coins WHERE symbol = ?`, coin)
+		log.Printf(`Coin %s have been deleted`, *coin)
+	} else {
+		var c models.Coin
+		ms.db.Where("symbol = ?", coin).First(&c)
+		ms.db.Model(&c).Updates(map[string]interface{}{
+			"volume":          data.Result.Volume,
+			"reserve_balance": data.Result.ReserveBalance,
+		})
+		log.Printf(`Coin %s have been updated`, *coin)
+	}
 }
 
 func stripHtmlTags(str *string) *string {

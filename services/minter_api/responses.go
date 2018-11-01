@@ -30,6 +30,11 @@ type ValidatorsResponse struct {
 	Result []Validator `json:"result"`
 }
 
+type CoinInfoResponse struct {
+	Response
+	Result CoinInfoResult `json:"result"`
+}
+
 type BlockResult struct {
 	Hash         string        `json:"hash"`
 	Height       uint          `json:"height"`
@@ -116,4 +121,12 @@ type stake struct {
 	Coin     string `json:"coin"`
 	Value    string `json:"value"`
 	BipValue string `json:"bip_value"`
+}
+
+type CoinInfoResult struct {
+	Name           string `json:"name"`
+	Symbol         string `json:"symbol"`
+	Volume         string `json:"volume"`
+	Crr            uint   `json:"crr"`
+	ReserveBalance string `json:"reserve_balance"`
 }
