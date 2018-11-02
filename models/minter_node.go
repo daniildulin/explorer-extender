@@ -9,6 +9,7 @@ type MinterNode struct {
 	ID         uint    `gorm:"primary_key"`
 	Host       string  `json:"host"        gorm:"type:varchar(255)"`
 	Port       uint    `json:"port"        gorm:"type:int; default:8841"`
+	Version    string  `json:"version"     gorm:"type:varchar(255)"`
 	Ping       float32 `json:"ping"        gorm:"type:numeric(7,3)"`
 	IsSecure   bool    `json:"is_secure"   gorm:"default:false"`
 	IsActive   bool    `json:"is_active"   gorm:"default:false"`

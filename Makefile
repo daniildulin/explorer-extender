@@ -1,6 +1,6 @@
-APP ?= explorer-extender
+APP ?= extender
 VERSION ?= $(strip $(shell cat VERSION))
-GOOS ?= darwin
+GOOS ?= linux
 GLIDE ?= $(shell /usr/bin/env glide 2> /dev/null)
 SRC = ./
 
@@ -9,7 +9,7 @@ BRANCH = $(strip $(shell git rev-parse --abbrev-ref HEAD))
 CHANGES = $(shell git rev-list --count ${COMMIT})
 BUILDED ?= $(shell date -u '+%Y-%m-%dT%H:%M:%S')
 GOLDFLAGS = "-X main.Version=$(VERSION) -X main.GitCommit=$(COMMIT) -X main.BuildedDate=$(BUILDED)"
-BINARY = build/$(GOOS)/$(APP)
+BINARY = builds/$(APP)
 DOCKER_TAG = latest
 SERVER ?= explorer.minter.network
 
