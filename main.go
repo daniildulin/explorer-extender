@@ -45,7 +45,7 @@ func main() {
 	helpers.CheckErr(err)
 	defer db.Close()
 	db.LogMode(config.GetBool(`debug`))
-	database.Migrate(db)
+	database.Migrate(db, config)
 
 	minterApi := minter_api.New(config, db, &http.Client{Timeout: 10 * time.Second})
 	minterService := minter_service.New(config, db, minterApi)

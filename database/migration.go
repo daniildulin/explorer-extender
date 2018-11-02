@@ -2,11 +2,12 @@ package database
 
 import (
 	"fmt"
+	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/models"
 	"github.com/jinzhu/gorm"
 )
 
-func Migrate(db *gorm.DB) {
+func Migrate(db *gorm.DB, config env.Config) {
 	// Use GORM automigrate for models
 	fmt.Println(`Automigrate database schema.`)
 	db.AutoMigrate(
@@ -18,6 +19,7 @@ func Migrate(db *gorm.DB) {
 		&models.Validator{},
 		&models.Coin{},
 		&models.MinterNode{},
+		&models.Balance{},
 	)
 
 	db.Exec("CREATE TABLE IF NOT EXISTS block_validator (block_id INT REFERENCES blocks (id) ON DELETE CASCADE, validator_id INT REFERENCES validators (id) ON DELETE CASCADE)")
@@ -36,4 +38,31 @@ func Migrate(db *gorm.DB) {
 	db.Exec(`CREATE INDEX IF NOT EXISTS  transactions_hash_index ON transactions ("hash" ASC)`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS  transactions_pub_key_index ON transactions ("pub_key" ASC)`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS  transactions_address_index ON transactions ("address" ASC)`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS  balance_address_index ON balances ("address" ASC)`)
+
+	//Add Base Coin To DB
+	db.FirstOrCreate(&models.Coin{}, models.Coin{
+		Name:           "Minter Coin",
+		Symbol:         config.GetString(`baseCoin`),
+		Crr:            0,
+		Volume:         `0`,
+		ReserveBalance: `0`,
+		Creator:        ``,
+	})
+
+	//Add Minter Node
+	createNodeFromConfig(db, config)
+}
+
+func createNodeFromConfig(db *gorm.DB, config env.Config) {
+	var node models.MinterNode
+	db.Where("host = ? AND port = ?", config.GetString(`minterApi.link`), config.GetString(`minterApi.port`)).First(&node)
+	if node.ID == 0 {
+		node.Host = config.GetString(`minterApi.link`)
+		node.Port = uint(config.GetInt(`minterApi.port`))
+		node.IsSecure = config.GetBool(`minterApi.isSecure`)
+		node.IsLocal = true
+		node.IsActive = true
+		db.Create(&node)
+	}
 }

@@ -88,7 +88,6 @@ func (ms *MinterService) deleteBlockData(blockHeight uint) {
 	}
 }
 
-// Store data to DB
 func (ms *MinterService) storeDataToDb(blockHeight uint) error {
 	blockData, err := ms.api.GetBlock(blockHeight)
 	if err != nil {
@@ -258,7 +257,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 
 		if tx.Type == models.TX_TYPE_CREATE_COIN {
 			transaction.Coin = tx.Data.Symbol
-			go coins.CreateFromTransaction(coinChan, transaction)
+			go ms.createFromTransaction(&transaction)
 		}
 
 		if tx.Type == models.TX_TYPE_SELL_COIN {
@@ -273,13 +272,24 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
 			transaction.ValueToBuy = tx.Data.ValueToBuy
 		}
-
+		go ms.updateBalances(&transaction)
 		go ms.updateCoins(&transaction)
-
 		result[i] = transaction
 	}
 
 	return result
+}
+
+func (ms *MinterService) createFromTransaction(transaction *models.Transaction) {
+	ms.db.Save(&models.Coin{
+		Symbol:         *transaction.Coin,
+		Name:           *transaction.Name,
+		Volume:         *transaction.InitialAmount,
+		ReserveBalance: *transaction.InitialReserve,
+		Crr:            *transaction.ConstantReserveRatio,
+		Creator:        transaction.From,
+		CreatedAt:      transaction.CreatedAt,
+	})
 }
 
 func (ms *MinterService) updateCoins(tx *models.Transaction) {
@@ -314,6 +324,34 @@ func (ms *MinterService) updateCoin(coin *string) {
 	}
 }
 
+func (ms *MinterService) updateBalances(tx *models.Transaction) {
+	ms.updateAddressBalance(tx.From)
+	if tx.To != nil && *tx.To != tx.From {
+		ms.updateAddressBalance(*tx.To)
+	}
+}
+
+func (ms *MinterService) updateAddressBalance(address string) {
+	var coinsList []string
+	data, _ := ms.api.GetAddressBalance(address)
+	for coin, amount := range data.Result.Balance {
+		coinsList = append(coinsList, coin)
+		var balance models.Balance
+		ms.db.Where("address = ? AND  coin = ?", address, coin).First(&balance)
+
+		if balance.ID == 0 {
+			balance.Address = address
+			balance.Coin = coin
+			balance.Amount = amount
+			ms.db.Create(&balance)
+		} else {
+			ms.db.Model(&balance).Update("amount", amount)
+			//ms.db.Exec(`UPDATE balances SET amount = ? WHERE id = ? `, amount, balance.ID)
+		}
+	}
+	ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
+}
+
 func stripHtmlTags(str *string) *string {
 	var s string
 	if str != nil {
@@ -329,17 +367,13 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 			return &tag.Value
 		}
 	}
-
 	return nil
 }
 
 func getEventsModelsFromApiData(blockData *minter_api.BlockResult) events {
-
 	var rewards []models.Reward
 	var slashes []models.Slash
-
 	for _, event := range blockData.Events {
-
 		if event.Type == `minter/RewardEvent` {
 			rewards = append(rewards, models.Reward{
 				Role:        event.Value.Role,

@@ -8,6 +8,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type MinterApi struct {
@@ -86,6 +87,20 @@ func (api *MinterApi) GetCoinInfo(coin string) (*CoinInfoResponse, error) {
 	api.checkNodes()
 	for _, node := range api.nodes {
 		link := node.GetFullLink() + `/api/coinInfo/` + coin
+		api.getJson(link, &response)
+		if err == nil && response.Log == nil {
+			return &response, nil
+		}
+	}
+	return &response, err
+}
+
+func (api *MinterApi) GetAddressBalance(address string) (*BalanceResponse, error) {
+	var err error
+	response := BalanceResponse{}
+	api.checkNodes()
+	for _, node := range api.nodes {
+		link := node.GetFullLink() + `/api/balance/` + strings.Title(address)
 		api.getJson(link, &response)
 		if err == nil && response.Log == nil {
 			return &response, nil

@@ -35,6 +35,11 @@ type CoinInfoResponse struct {
 	Result CoinInfoResult `json:"result"`
 }
 
+type BalanceResponse struct {
+	Response
+	Result BalanceResult `json:"result"`
+}
+
 type BlockResult struct {
 	Hash         string        `json:"hash"`
 	Height       uint          `json:"height"`
@@ -129,4 +134,8 @@ type CoinInfoResult struct {
 	Volume         string `json:"volume"`
 	Crr            uint   `json:"crr"`
 	ReserveBalance string `json:"reserve_balance"`
+}
+
+type BalanceResult struct {
+	Balance map[string]string `json:"balance"`
 }
