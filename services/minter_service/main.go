@@ -43,14 +43,14 @@ func (ms *MinterService) Run() {
 	currentDBBlock := ms.getLastBlockFromDB()
 	lastApiBlock, _ := ms.api.GetLastBlock()
 
-	log.Printf("Connect to %s", ms.config.GetString("minterApi.link"))
-	log.Printf("Start from block %d", currentDBBlock)
-
-	if currentDBBlock > 0 {
+	if currentDBBlock >= 1 {
 		ms.deleteBlockData(currentDBBlock)
 	} else {
 		currentDBBlock = 1
 	}
+
+	log.Printf("Connect to %s", ms.config.GetString("minterApi.link"))
+	log.Printf("Start from block %d", currentDBBlock)
 
 	for {
 		if currentDBBlock <= lastApiBlock {
@@ -64,7 +64,7 @@ func (ms *MinterService) Run() {
 		} else {
 			lastApiBlock, _ = ms.api.GetLastBlock()
 		}
-		time.Sleep(300 * time.Millisecond)
+		//time.Sleep(300 * time.Millisecond)
 	}
 }
 
