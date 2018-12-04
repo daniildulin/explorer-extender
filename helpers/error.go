@@ -4,12 +4,12 @@ import "log"
 
 func CheckErr(err error) {
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 }
 
 func CheckErrBool(ok bool) {
 	if !ok {
-		log.Panic(ok)
+		log.Println(ok)
 	}
 }

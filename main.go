@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/centrifugal/gocent"
 	"github.com/daniildulin/explorer-extender/database"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
@@ -44,11 +45,31 @@ func main() {
 	db, err := gorm.Open("postgres", config.GetString(`database.url`))
 	helpers.CheckErr(err)
 	defer db.Close()
-	db.LogMode(config.GetBool(`debug`))
 	database.Migrate(db, config)
 
-	minterApi := minter_api.New(config, db, &http.Client{Timeout: 10 * time.Second})
-	minterService := minter_service.New(config, db, minterApi)
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+
+	wsLink := `http://`
+	if config.GetBool(`wsServer.isSecure`) {
+		wsLink = `https://`
+	}
+
+	wsLink += config.GetString(`wsServer.link`)
+
+	if config.GetString(`wsServer.port`) != `` {
+		wsLink += `:` + config.GetString(`wsServer.port`)
+	}
+
+	wsClient := gocent.New(gocent.Config{
+		Addr:       wsLink,
+		Key:        config.GetString(`wsServer.key`),
+		HTTPClient: httpClient,
+	})
+
+	mbs := minter_service.NewMinterBroadcast(wsClient)
+
+	minterApi := minter_api.New(config, db, httpClient)
+	minterService := minter_service.New(config, db, minterApi, mbs)
 
 	for {
 		if minterService.GetActiveNodesCount() > 0 {

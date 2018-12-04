@@ -53,19 +53,19 @@ type BlockResult struct {
 }
 
 type transaction struct {
-	Hash        string            `json:"hash"`
-	From        string            `json:"from"`
-	Type        uint              `json:"type"`
-	Nonce       uint              `json:"nonce"`
-	GasPrice    uint              `json:"gas_price"`
-	GasCoin     string            `json:"gas_coin"`
-	GasUsed     uint              `json:"gas_used"`
-	Gas         uint              `json:"gas"`
-	Payload     string            `json:"payload"`
-	ServiceData string            `json:"service_data"`
-	Data        transactionData   `json:"data"`
-	Tags        map[string]string `json:"tags"`
-	Log         *string           `json:"log"`
+	Hash        string             `json:"hash"`
+	From        string             `json:"from"`
+	Type        uint               `json:"type"`
+	Nonce       uint               `json:"nonce"`
+	GasPrice    uint               `json:"gas_price"`
+	GasCoin     string             `json:"gas_coin"`
+	GasUsed     uint               `json:"gas_used"`
+	Gas         uint               `json:"gas"`
+	Payload     string             `json:"payload"`
+	ServiceData string             `json:"service_data"`
+	Data        transactionData    `json:"data"`
+	Tags        *map[string]string `json:"tags"`
+	Log         *string            `json:"log"`
 }
 
 type transactionData struct {

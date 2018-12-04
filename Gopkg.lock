@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:b33ffd395503c2dbd0f31ba15b48bab3969c049d52ed57efe158f62ceda57555"
+  name = "github.com/centrifugal/gocent"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c1f4a2164b950c77d8881ede2c929124ce6c428c"
+  version = "v2.0.2"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -169,6 +177,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/centrifugal/gocent",
     "github.com/grokify/html-strip-tags-go",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",

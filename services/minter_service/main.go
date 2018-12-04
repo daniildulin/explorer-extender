@@ -6,7 +6,6 @@ import (
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
-	"github.com/daniildulin/explorer-extender/services/coins"
 	"github.com/daniildulin/explorer-extender/services/minter_api"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
@@ -14,8 +13,6 @@ import (
 	"strings"
 	"time"
 )
-
-var coinChan = make(chan models.Coin)
 
 type events struct {
 	Rewards []models.Reward
@@ -26,19 +23,19 @@ type MinterService struct {
 	db     *gorm.DB
 	config env.Config
 	api    *minter_api.MinterApi
+	bs     *MinterBroadcastService
 }
 
-func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi) *MinterService {
+func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi, wsClient *MinterBroadcastService) *MinterService {
 	return &MinterService{
 		db:     db,
 		config: config,
 		api:    minterApi,
+		bs:     wsClient,
 	}
 }
 
 func (ms *MinterService) Run() {
-
-	go coins.Store(coinChan, ms.db)
 
 	currentDBBlock := ms.getLastBlockFromDB()
 	lastApiBlock, _ := ms.api.GetLastBlock()
@@ -94,7 +91,7 @@ func (ms *MinterService) storeDataToDb(blockHeight uint) error {
 		return err
 	}
 	ms.storeBlockToDB(&blockData.Result)
-	ms.storeBlockValidators(blockHeight)
+	//ms.storeBlockValidators(blockHeight)
 	if ms.config.GetBool(`debug`) {
 		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
 	}
@@ -121,6 +118,11 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 
 	if blockModel.TxCount > 0 {
 		blockModel.Transactions = ms.getTransactionModelsFromApiData(blockData)
+		for i, tx := range blockModel.Transactions {
+			if i <= 19 {
+				go ms.bs.Transaction(&tx)
+			}
+		}
 	}
 
 	if blockData.Events != nil {
@@ -130,6 +132,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 	}
 
 	ms.db.Create(&blockModel)
+	go ms.bs.Block(&blockModel)
 }
 
 func (ms *MinterService) storeBlockValidators(blockHeight uint) {
@@ -246,7 +249,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 
 		var tags []models.TxTag
 		if tx.Tags != nil {
-			for k, tg := range tx.Tags {
+			for k, tg := range *tx.Tags {
 				tags = append(tags, models.TxTag{
 					Key:   k,
 					Value: tg,
@@ -257,7 +260,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 
 		if tx.Type == models.TX_TYPE_CREATE_COIN {
 			transaction.Coin = tx.Data.Symbol
-			go ms.createFromTransaction(&transaction)
+			ms.createFromTransaction(&transaction)
 		}
 
 		if tx.Type == models.TX_TYPE_SELL_COIN {
@@ -348,6 +351,7 @@ func (ms *MinterService) updateAddressBalance(address string) {
 			ms.db.Model(&balance).Update("amount", amount)
 			//ms.db.Exec(`UPDATE balances SET amount = ? WHERE id = ? `, amount, balance.ID)
 		}
+		go ms.bs.Balance(&balance)
 	}
 	ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
 }
