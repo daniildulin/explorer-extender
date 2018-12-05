@@ -57,12 +57,12 @@ type BlockResult struct {
 type transaction struct {
 	Hash        string             `json:"hash"`
 	From        string             `json:"from"`
-	Type        uint               `json:"type"`
-	Nonce       uint               `json:"nonce"`
-	GasPrice    uint               `json:"gas_price"`
+	Type        string             `json:"type"`
+	Nonce       string             `json:"nonce"`
+	GasPrice    string             `json:"gas_price"`
 	GasCoin     string             `json:"gas_coin"`
-	GasUsed     uint               `json:"gas_used"`
-	Gas         uint               `json:"gas"`
+	GasUsed     string             `json:"gas_used"`
+	Gas         string             `json:"gas"`
 	Payload     string             `json:"payload"`
 	ServiceData string             `json:"service_data"`
 	Data        transactionData    `json:"data"`
@@ -82,16 +82,16 @@ type transactionData struct {
 	Symbol               *string `json:"coin_symbol"`
 	InitialAmount        *string `json:"initial_amount"`
 	InitialReserve       *string `json:"initial_reserve"`
-	ConstantReserveRatio *uint   `json:"constant_reserve_ratio"`
+	ConstantReserveRatio *string `json:"constant_reserve_ratio"`
 	Address              *string `json:"address"`
 	PubKey               *string `json:"pub_key"`
-	Commission           *uint   `json:"commission"`
+	Commission           *string `json:"commission"`
 	Stake                *string `json:"stake"`
 	Proof                *string `json:"proof"`
 	RawCheck             *string `json:"raw_check"`
 	ToCoinSymbol         *string `json:"to_coin_symbol"`
 	FromCoinSymbol       *string `json:"from_coin_symbol"`
-	Threshold            *uint   `json:"threshold"`
+	Threshold            *string `json:"threshold"`
 }
 
 type event struct {

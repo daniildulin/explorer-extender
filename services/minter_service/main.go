@@ -92,9 +92,9 @@ func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 		return err
 	}
 	ms.storeBlockToDB(&blockData.Result)
-	ms.storeBlockValidators(blockHeight)
+	//ms.storeBlockValidators(blockHeight) // TODO: get from block data
 	if ms.config.GetBool(`debug`) {
-		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
+		log.Printf("Block: %s; Txs: %s; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
 	}
 	return nil
 }
@@ -228,14 +228,29 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 		status := tx.Log == nil
 		payload, _ := base64.StdEncoding.DecodeString(tx.Payload)
 
+		txType, err := strconv.ParseUint(tx.Type, 10, 8)
+		helpers.CheckErr(err)
+		nonce, err := strconv.ParseUint(tx.Nonce, 10, 64)
+		helpers.CheckErr(err)
+		gasPrice, err := strconv.ParseUint(tx.GasPrice, 10, 64)
+		helpers.CheckErr(err)
+		gas, err := strconv.ParseUint(tx.Gas, 10, 64)
+		helpers.CheckErr(err)
+		commission, err := strconv.ParseUint(*tx.Data.Commission, 10, 64)
+		helpers.CheckErr(err)
+		crr, err := strconv.ParseUint(*tx.Data.ConstantReserveRatio, 10, 64)
+		helpers.CheckErr(err)
+		threshold, err := strconv.ParseUint(*tx.Data.Threshold, 10, 64)
+		helpers.CheckErr(err)
+
 		transaction := models.Transaction{
 			Hash:                 strings.Title(tx.Hash),
 			From:                 strings.Title(tx.From),
-			Type:                 tx.Type,
-			Nonce:                tx.Nonce,
-			GasPrice:             tx.GasPrice,
+			Type:                 uint8(txType),
+			Nonce:                nonce,
+			GasPrice:             gasPrice,
 			GasCoin:              &tx.GasCoin,
-			Fee:                  tx.Gas,
+			Fee:                  gas,
 			Payload:              strip.StripTags(string(payload[:])),
 			ServiceData:          strip.StripTags(tx.ServiceData),
 			CreatedAt:            blockData.Time,
@@ -246,16 +261,16 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			CoinToBuy:            tx.Data.CoinToBuy,
 			Stake:                tx.Data.Stake,
 			Value:                tx.Data.Value,
-			Commission:           tx.Data.Commission,
+			Commission:           &commission,
 			InitialAmount:        tx.Data.InitialAmount,
 			InitialReserve:       tx.Data.InitialReserve,
-			ConstantReserveRatio: tx.Data.ConstantReserveRatio,
+			ConstantReserveRatio: &crr,
 			RawCheck:             tx.Data.RawCheck,
 			Proof:                tx.Data.Proof,
 			Coin:                 stripHtmlTags(tx.Data.Coin),
 			PubKey:               tx.Data.PubKey,
 			Status:               status,
-			Threshold:            tx.Data.Threshold,
+			Threshold:            &threshold,
 		}
 
 		var tags []models.TxTag
@@ -269,20 +284,20 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			transaction.Tags = tags
 		}
 
-		if tx.Type == models.TX_TYPE_CREATE_COIN {
+		if txType == models.TX_TYPE_CREATE_COIN {
 			transaction.Coin = tx.Data.Symbol
 			ms.createFromTransaction(&transaction)
 		}
 
-		if tx.Type == models.TX_TYPE_SELL_COIN {
+		if txType == models.TX_TYPE_SELL_COIN {
 			transaction.ValueToSell = tx.Data.ValueToSell
 			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
-		if tx.Type == models.TX_TYPE_SELL_ALL_COIN {
+		if txType == models.TX_TYPE_SELL_ALL_COIN {
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.sell_amount`)
 			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
-		if tx.Type == models.TX_TYPE_BUY_COIN {
+		if txType == models.TX_TYPE_BUY_COIN {
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
 			transaction.ValueToBuy = tx.Data.ValueToBuy
 		}

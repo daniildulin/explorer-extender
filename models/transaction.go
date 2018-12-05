@@ -36,9 +36,9 @@ var txType = [12]string{
 }
 
 type Transaction struct {
-	ID                   uint    `gorm:"primary_key"`
-	BlockID              uint    `json:"block_id"               gorm:"type:bigint"`
-	Type                 uint    `json:"type"`
+	ID                   uint64  `gorm:"primary_key"`
+	BlockID              uint64  `json:"block_id"               gorm:"type:bigint"`
+	Type                 uint8   `json:"type"`
 	From                 string  `json:"from"                   gorm:"type:varchar(100)"`
 	To                   *string `json:"to"                     gorm:"type:varchar(100)"`
 	Hash                 string  `json:"hash"                   gorm:"type:varchar(100)"`
@@ -46,19 +46,19 @@ type Transaction struct {
 	Value                *string `json:"value"                  gorm:"type:numeric(300,0)"`
 	ValueToSell          *string `json:"value_to_sell"          gorm:"type:numeric(300,0)"`
 	ValueToBuy           *string `json:"value_to_buy"           gorm:"type:numeric(300,0)"`
-	Fee                  uint    `json:"fee"                    gorm:"type:numeric(300,0)"`
+	Fee                  uint64  `json:"fee"                    gorm:"type:numeric(300,0)"`
 	Stake                *string `json:"stake"                  gorm:"type:numeric(300,0)"`
-	Commission           *uint   `json:"Commission"             gorm:"type:numeric(300,0)"`
+	Commission           *uint64 `json:"Commission"             gorm:"type:numeric(300,0)"`
 	InitialAmount        *string `json:"initial_amount"         gorm:"type:numeric(300,0)"`
 	InitialReserve       *string `json:"initial_reserve"        gorm:"type:numeric(50,0)"`
-	ConstantReserveRatio *uint   `json:"constant_reserve_ratio" gorm:"type:numeric(300,0)"`
+	ConstantReserveRatio *uint64 `json:"constant_reserve_ratio" gorm:"type:numeric(300,0)"`
 	GasWanted            *string `json:"gas_wanted"             gorm:"type:numeric(300,0)"`
 	GasUsed              *string `json:"gas_used"               gorm:"type:numeric(300,0)"`
-	GasPrice             uint    `json:"gas_price"              gorm:"type:numeric(300,0)"`
+	GasPrice             uint64  `json:"gas_price"              gorm:"type:numeric(300,0)"`
 	GasCoin              *string `json:"gas_coin"               gorm:"type:varchar(20)"`
 	Coin                 *string `json:"coin"                   gorm:"type:varchar(255)"`
-	Nonce                uint    `json:"nonce"`
-	Threshold            *uint   `json:"threshold"`
+	Nonce                uint64  `json:"nonce"`
+	Threshold            *uint64 `json:"threshold"`
 	Payload              string  `json:"payload"                gorm:"type:text"`
 	ServiceData          string  `json:"service_data"           gorm:"type:text"`
 	Address              *string `json:"Address"                gorm:"type:varchar(255)"`
@@ -76,10 +76,10 @@ type Transaction struct {
 }
 
 type TransactionResponse struct {
-	Txn       uint              `json:"txn"`
+	Txn       uint64            `json:"txn"`
 	Hash      string            `json:"hash"`
-	Nonce     uint              `json:"nonce"`
-	Block     uint              `json:"block"`
+	Nonce     uint64            `json:"nonce"`
+	Block     uint64            `json:"block"`
 	Timestamp time.Time         `json:"timestamp"`
 	Fee       string            `json:"fee"`
 	Type      string            `json:"type"`
