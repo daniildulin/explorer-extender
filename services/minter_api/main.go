@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/daniildulin/explorer-extender/env"
+	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
 	"github.com/jinzhu/gorm"
 	"net/http"
@@ -38,28 +39,29 @@ func (api *MinterApi) GetActualNodes() {
 	api.nodes = nodes
 }
 
-func (api *MinterApi) GetLastBlock() (uint, error) {
+func (api *MinterApi) GetLastBlock() (uint64, error) {
 	var err error
 	response := StatusResponse{}
 	api.checkNodes()
 	for _, node := range api.nodes {
-		link := node.GetFullLink() + `/api/status`
-		api.getJson(link, &response)
+		link := node.GetFullLink() + `/status`
+		err = api.getJson(link, &response)
 		u64, err := strconv.ParseUint(response.Result.LatestBlockHeight, 10, 32)
 		if err == nil && response.Log == nil {
-			return uint(u64), nil
+			return u64, nil
 		}
 	}
 	return 0, err
 }
 
-func (api *MinterApi) GetBlock(blockHeight uint) (*BlockResponse, error) {
+func (api *MinterApi) GetBlock(blockHeight uint64) (*BlockResponse, error) {
 	var err error
 	response := BlockResponse{}
 	api.checkNodes()
 	for _, node := range api.nodes {
-		link := node.GetFullLink() + `/api/block/` + fmt.Sprint(blockHeight)
-		api.getJson(link, &response)
+		link := node.GetFullLink() + `/block?height=` + fmt.Sprint(blockHeight)
+		err = api.getJson(link, &response)
+		helpers.CheckErr(err)
 		if response.Log == nil {
 			return &response, nil
 		}
@@ -67,12 +69,12 @@ func (api *MinterApi) GetBlock(blockHeight uint) (*BlockResponse, error) {
 	return nil, err
 }
 
-func (api *MinterApi) GetBlockValidators(blockHeight uint) (*ValidatorsResponse, error) {
+func (api *MinterApi) GetBlockValidators(blockHeight uint64) (*ValidatorsResponse, error) {
 	var err error
 	response := ValidatorsResponse{}
 	api.checkNodes()
 	for _, node := range api.nodes {
-		link := node.GetFullLink() + `/api/validators/?height=` + fmt.Sprint(blockHeight)
+		link := node.GetFullLink() + `/validators?height=` + fmt.Sprint(blockHeight)
 		api.getJson(link, &response)
 		if err == nil && response.Log == nil {
 			return &response, nil
@@ -86,7 +88,7 @@ func (api *MinterApi) GetCoinInfo(coin string) (*CoinInfoResponse, error) {
 	response := CoinInfoResponse{}
 	api.checkNodes()
 	for _, node := range api.nodes {
-		link := node.GetFullLink() + `/api/coinInfo/` + coin
+		link := node.GetFullLink() + `/coinInfo/` + coin
 		api.getJson(link, &response)
 		if err == nil && response.Log == nil {
 			return &response, nil
@@ -100,7 +102,7 @@ func (api *MinterApi) GetAddressBalance(address string) (*BalanceResponse, error
 	response := BalanceResponse{}
 	api.checkNodes()
 	for _, node := range api.nodes {
-		link := node.GetFullLink() + `/api/balance/` + strings.Title(address)
+		link := node.GetFullLink() + `/address?address=` + strings.Title(address)
 		api.getJson(link, &response)
 		if err == nil && response.Log == nil {
 			return &response, nil

@@ -7,11 +7,11 @@ import (
 )
 
 type Block struct {
-	ID           uint          `json:"-"         gorm:"primary_key"`
-	Height       uint          `json:"height"    gorm:"type:bigint;unique_index"`
+	ID           uint64        `json:"-"         gorm:"primary_key"`
+	Height       uint64        `json:"height"    gorm:"type:bigint;unique_index"`
 	Timestamp    int64         `json:"-"         gorm:"type:bigint"`
-	TxCount      uint          `json:"txCount"`
-	Size         uint          `json:"size"`
+	TxCount      uint16        `json:"txCount"`
+	Size         uint16        `json:"size"`
 	BlockTime    float64       `json:"blockTime" gorm:"type:numeric(20, 10)"`
 	Hash         string        `json:"hash"      gorm:"type:varchar(255)"`
 	BlockReward  string        `json:"reward"    gorm:"type:numeric(300, 0)"`
@@ -24,7 +24,7 @@ type Block struct {
 	DeletedAt    *time.Time    `json:"-"`
 }
 
-func NewBlock(ID uint, height uint, timestamp int64, txCount uint, size uint, blockTime float64, hash string, blockReward string, validators []Validator, transactions []Transaction, rewards []Reward, slashes []Slash, createdAt time.Time, updatedAt time.Time, deletedAt *time.Time) *Block {
+func NewBlock(ID uint64, height uint64, timestamp int64, txCount uint16, size uint16, blockTime float64, hash string, blockReward string, validators []Validator, transactions []Transaction, rewards []Reward, slashes []Slash, createdAt time.Time, updatedAt time.Time, deletedAt *time.Time) *Block {
 	return &Block{ID: ID, Height: height, Timestamp: timestamp, TxCount: txCount, Size: size, BlockTime: blockTime, Hash: hash, BlockReward: blockReward, Validators: validators, Transactions: transactions, Rewards: rewards, Slashes: slashes, CreatedAt: createdAt, UpdatedAt: updatedAt, DeletedAt: deletedAt}
 }
 

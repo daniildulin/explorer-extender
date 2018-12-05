@@ -45,6 +45,7 @@ func main() {
 	db, err := gorm.Open("postgres", config.GetString(`database.url`))
 	helpers.CheckErr(err)
 	defer db.Close()
+	db.LogMode(config.GetBool(`debug`))
 	database.Migrate(db, config)
 
 	httpClient := &http.Client{Timeout: 30 * time.Second}

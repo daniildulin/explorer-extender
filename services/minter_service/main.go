@@ -10,6 +10,7 @@ import (
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,7 +39,8 @@ func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi, wsClie
 func (ms *MinterService) Run() {
 
 	currentDBBlock := ms.getLastBlockFromDB()
-	lastApiBlock, _ := ms.api.GetLastBlock()
+	lastApiBlock, err := ms.api.GetLastBlock()
+	helpers.CheckErr(err)
 
 	if currentDBBlock >= 1 {
 		ms.deleteBlockData(currentDBBlock)
@@ -61,7 +63,6 @@ func (ms *MinterService) Run() {
 		} else {
 			lastApiBlock, _ = ms.api.GetLastBlock()
 		}
-		//time.Sleep(300 * time.Millisecond)
 	}
 }
 
@@ -73,25 +74,25 @@ func (ms *MinterService) UpdateApiNodesList() {
 	ms.api.GetActualNodes()
 }
 
-func (ms *MinterService) getLastBlockFromDB() uint {
+func (ms *MinterService) getLastBlockFromDB() uint64 {
 	var b models.Block
 	ms.db.Last(&b)
 	return b.Height
 }
 
-func (ms *MinterService) deleteBlockData(blockHeight uint) {
+func (ms *MinterService) deleteBlockData(blockHeight uint64) {
 	if blockHeight > 0 {
 		ms.db.Exec(`DELETE FROM blocks WHERE id=?`, blockHeight)
 	}
 }
 
-func (ms *MinterService) storeDataToDb(blockHeight uint) error {
+func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 	blockData, err := ms.api.GetBlock(blockHeight)
 	if err != nil {
 		return err
 	}
 	ms.storeBlockToDB(&blockData.Result)
-	//ms.storeBlockValidators(blockHeight)
+	ms.storeBlockValidators(blockHeight)
 	if ms.config.GetBool(`debug`) {
 		log.Printf("Block: %d; Txs: %d; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
 	}
@@ -100,19 +101,26 @@ func (ms *MinterService) storeDataToDb(blockHeight uint) error {
 
 func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 
-	if blockData.Height <= 0 {
+	height, err := strconv.Atoi(blockData.Height)
+	helpers.CheckErr(err)
+	if height <= 0 {
 		return
 	}
 
+	txCount, err := strconv.Atoi(blockData.TxCount)
+	helpers.CheckErr(err)
+	size, err := strconv.Atoi(blockData.Size)
+	helpers.CheckErr(err)
+
 	blockModel := models.Block{
-		ID:          blockData.Height,
+		ID:          uint64(height),
 		Hash:        `Mh` + strings.ToLower(blockData.Hash),
-		Height:      blockData.Height,
-		TxCount:     blockData.TxCount,
+		Height:      uint64(height),
+		TxCount:     uint16(txCount),
 		CreatedAt:   blockData.Time,
 		Timestamp:   blockData.Time.UnixNano(),
-		Size:        blockData.Size,
-		BlockTime:   ms.getBlockTime(blockData.Height, blockData.Time),
+		Size:        uint16(size),
+		BlockTime:   ms.getBlockTime(uint64(height), blockData.Time),
 		BlockReward: blockData.BlockReward,
 	}
 
@@ -135,7 +143,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 	go ms.bs.Block(&blockModel)
 }
 
-func (ms *MinterService) storeBlockValidators(blockHeight uint) {
+func (ms *MinterService) storeBlockValidators(blockHeight uint64) {
 
 	response, err := ms.api.GetBlockValidators(blockHeight)
 	helpers.CheckErr(err)
@@ -157,7 +165,7 @@ func (ms *MinterService) storeBlockValidators(blockHeight uint) {
 	}
 }
 
-func (ms *MinterService) getBlockTime(currentBlockHeight uint, blockTime time.Time) float64 {
+func (ms *MinterService) getBlockTime(currentBlockHeight uint64, blockTime time.Time) float64 {
 
 	if currentBlockHeight == 1 {
 		return 1
@@ -210,7 +218,10 @@ func (ms *MinterService) getValidatorModels(validatorsData []minter_api.Validato
 
 func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models.Transaction {
 
-	var result = make([]models.Transaction, blockData.TxCount)
+	txCount, err := strconv.Atoi(blockData.TxCount)
+	helpers.CheckErr(err)
+
+	var result = make([]models.Transaction, txCount)
 
 	for i, tx := range blockData.Transactions {
 

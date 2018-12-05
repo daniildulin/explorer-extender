@@ -5,8 +5,10 @@ import (
 )
 
 type Response struct {
-	Code uint    `json:"code"`
-	Log  *string `json:"log"`
+	JSONrpc string  `json:"jsonrpc"`
+	ID      string  `json:"id"`
+	Code    uint    `json:"code"`
+	Log     *string `json:"log"`
 }
 
 type StatusResponse struct {
@@ -42,11 +44,11 @@ type BalanceResponse struct {
 
 type BlockResult struct {
 	Hash         string        `json:"hash"`
-	Height       uint          `json:"height"`
-	TxCount      uint          `json:"num_txs"`
-	TotalTx      uint          `json:"total_txs"`
+	Height       string        `json:"height"`
+	TxCount      string        `json:"num_txs"`
+	TotalTx      string        `json:"total_txs"`
 	BlockReward  string        `json:"block_reward"`
-	Size         uint          `json:"size"`
+	Size         string        `json:"size"`
 	Time         time.Time     `json:"time"`
 	Transactions []transaction `json:"transactions"`
 	Events       []event       `json:"events"`
