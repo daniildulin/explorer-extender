@@ -228,25 +228,17 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 		status := tx.Log == nil
 		payload, _ := base64.StdEncoding.DecodeString(tx.Payload)
 
-		txType, err := strconv.ParseUint(tx.Type, 10, 8)
-		helpers.CheckErr(err)
 		nonce, err := strconv.ParseUint(tx.Nonce, 10, 64)
 		helpers.CheckErr(err)
 		gasPrice, err := strconv.ParseUint(tx.GasPrice, 10, 64)
 		helpers.CheckErr(err)
 		gas, err := strconv.ParseUint(tx.Gas, 10, 64)
 		helpers.CheckErr(err)
-		commission, err := strconv.ParseUint(*tx.Data.Commission, 10, 64)
-		helpers.CheckErr(err)
-		crr, err := strconv.ParseUint(*tx.Data.ConstantReserveRatio, 10, 64)
-		helpers.CheckErr(err)
-		threshold, err := strconv.ParseUint(*tx.Data.Threshold, 10, 64)
-		helpers.CheckErr(err)
 
 		transaction := models.Transaction{
 			Hash:                 strings.Title(tx.Hash),
 			From:                 strings.Title(tx.From),
-			Type:                 uint8(txType),
+			Type:                 tx.Type,
 			Nonce:                nonce,
 			GasPrice:             gasPrice,
 			GasCoin:              &tx.GasCoin,
@@ -261,16 +253,34 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			CoinToBuy:            tx.Data.CoinToBuy,
 			Stake:                tx.Data.Stake,
 			Value:                tx.Data.Value,
-			Commission:           &commission,
+			Commission:           nil,
 			InitialAmount:        tx.Data.InitialAmount,
 			InitialReserve:       tx.Data.InitialReserve,
-			ConstantReserveRatio: &crr,
+			ConstantReserveRatio: nil,
 			RawCheck:             tx.Data.RawCheck,
 			Proof:                tx.Data.Proof,
 			Coin:                 stripHtmlTags(tx.Data.Coin),
 			PubKey:               tx.Data.PubKey,
 			Status:               status,
-			Threshold:            &threshold,
+			Threshold:            nil,
+		}
+
+		if tx.Data.Commission != nil {
+			commission, err := strconv.ParseUint(*tx.Data.Commission, 10, 64)
+			helpers.CheckErr(err)
+			transaction.Commission = &commission
+		}
+
+		if tx.Data.ConstantReserveRatio != nil {
+			crr, err := strconv.ParseUint(*tx.Data.ConstantReserveRatio, 10, 64)
+			helpers.CheckErr(err)
+			transaction.ConstantReserveRatio = &crr
+		}
+
+		if tx.Data.Threshold != nil {
+			threshold, err := strconv.ParseUint(*tx.Data.Threshold, 10, 64)
+			helpers.CheckErr(err)
+			transaction.Threshold = &threshold
 		}
 
 		var tags []models.TxTag
@@ -284,20 +294,20 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			transaction.Tags = tags
 		}
 
-		if txType == models.TX_TYPE_CREATE_COIN {
+		if tx.Type == models.TX_TYPE_CREATE_COIN {
 			transaction.Coin = tx.Data.Symbol
 			ms.createFromTransaction(&transaction)
 		}
 
-		if txType == models.TX_TYPE_SELL_COIN {
+		if tx.Type == models.TX_TYPE_SELL_COIN {
 			transaction.ValueToSell = tx.Data.ValueToSell
 			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
-		if txType == models.TX_TYPE_SELL_ALL_COIN {
+		if tx.Type == models.TX_TYPE_SELL_ALL_COIN {
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.sell_amount`)
 			transaction.ValueToBuy = getValueFromTxTag(tags, `tx.return`)
 		}
-		if txType == models.TX_TYPE_BUY_COIN {
+		if tx.Type == models.TX_TYPE_BUY_COIN {
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
 			transaction.ValueToBuy = tx.Data.ValueToBuy
 		}

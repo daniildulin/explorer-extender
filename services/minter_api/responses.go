@@ -57,7 +57,7 @@ type BlockResult struct {
 type transaction struct {
 	Hash        string             `json:"hash"`
 	From        string             `json:"from"`
-	Type        string             `json:"type"`
+	Type        uint8              `json:"type"`
 	Nonce       string             `json:"nonce"`
 	GasPrice    string             `json:"gas_price"`
 	GasCoin     string             `json:"gas_coin"`
