@@ -111,6 +111,20 @@ func (api *MinterApi) GetAddressBalance(address string) (*BalanceResponse, error
 	return &response, err
 }
 
+func (api *MinterApi) GetBlockEvents(blockHeight uint64) (*EventsResponse, error) {
+	var err error
+	response := EventsResponse{}
+	api.checkNodes()
+	for _, node := range api.nodes {
+		link := node.GetFullLink() + `/events?height=` + fmt.Sprint(blockHeight)
+		api.getJson(link, &response)
+		if err == nil && response.Log == nil {
+			return &response, nil
+		}
+	}
+	return &response, err
+}
+
 func (api *MinterApi) getJson(url string, target interface{}) error {
 	r, err := api.httpClient.Get(url)
 	if err != nil {

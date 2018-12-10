@@ -42,6 +42,11 @@ type BalanceResponse struct {
 	Result BalanceResult `json:"result"`
 }
 
+type EventsResponse struct {
+	Response
+	Result EventsResult `json:"result"`
+}
+
 type BlockResult struct {
 	Hash         string        `json:"hash"`
 	Height       string        `json:"height"`
@@ -52,6 +57,10 @@ type BlockResult struct {
 	Time         time.Time     `json:"time"`
 	Transactions []transaction `json:"transactions"`
 	Validators   []Validator   `json:"validators"`
+}
+
+type EventsResult struct {
+	Events *[]event `json:"events"`
 }
 
 type transaction struct {
