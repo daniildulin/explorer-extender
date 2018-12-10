@@ -51,7 +51,7 @@ type BlockResult struct {
 	Size         string        `json:"size"`
 	Time         time.Time     `json:"time"`
 	Transactions []transaction `json:"transactions"`
-	Events       []event       `json:"events"`
+	Validators   []Validator   `json:"validators"`
 }
 
 type transaction struct {
@@ -79,7 +79,7 @@ type transactionData struct {
 	ValueToSell          *string `json:"value_to_sell"`
 	ValueToBuy           *string `json:"value_to_buy"`
 	Name                 *string `json:"name"`
-	Symbol               *string `json:"coin_symbol"`
+	Symbol               *string `json:"symbol"`
 	InitialAmount        *string `json:"initial_amount"`
 	InitialReserve       *string `json:"initial_reserve"`
 	ConstantReserveRatio *string `json:"constant_reserve_ratio"`
@@ -108,9 +108,7 @@ type eventValue struct {
 }
 
 type Validator struct {
-	AccumulatedReward string `json:"accumulated_reward"`
-	AbsentTimes       uint   `json:"absent_times"`
-	Candidate         candidate
+	PubKey string `json:"pubkey"`
 }
 
 type candidate struct {

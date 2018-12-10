@@ -133,37 +133,39 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 		}
 	}
 
-	if blockData.Events != nil {
-		e := getEventsModelsFromApiData(blockData)
-		blockModel.Rewards = e.Rewards
-		blockModel.Slashes = e.Slashes
-	}
+	blockModel.Validators = ms.getValidatorModels(blockData)
+
+	//if blockData.Events != nil {
+	//	e := getEventsModelsFromApiData(blockData)
+	//	blockModel.Rewards = e.Rewards
+	//	blockModel.Slashes = e.Slashes
+	//}
 
 	ms.db.Create(&blockModel)
 	go ms.bs.Block(&blockModel)
 }
 
-func (ms *MinterService) storeBlockValidators(blockHeight uint64) {
-
-	response, err := ms.api.GetBlockValidators(blockHeight)
-	helpers.CheckErr(err)
-
-	validators := ms.getValidatorModels(response.Result)
-
-	var block models.Block
-	ms.db.First(&block, blockHeight)
-
-	// begin a transaction
-	for _, v := range validators {
-		if v.ID != 0 {
-			ms.db.Save(&v)
-			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
-		} else {
-			ms.db.Create(&v)
-			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
-		}
-	}
-}
+//func (ms *MinterService) storeBlockValidators(blockHeight uint64) {
+//
+//	response, err := ms.api.GetBlockValidators(blockHeight)
+//	helpers.CheckErr(err)
+//
+//	validators := ms.getValidatorModels(response.Result)
+//
+//	var block models.Block
+//	ms.db.First(&block, blockHeight)
+//
+//	// begin a transaction
+//	for _, v := range validators {
+//		if v.ID != 0 {
+//			ms.db.Save(&v)
+//			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
+//		} else {
+//			ms.db.Create(&v)
+//			ms.db.Exec(`INSERT INTO block_validator (block_id, validator_id) VALUES (?, ?)`, blockHeight, v.ID)
+//		}
+//	}
+//}
 
 func (ms *MinterService) getBlockTime(currentBlockHeight uint64, blockTime time.Time) float64 {
 
@@ -182,33 +184,29 @@ func (ms *MinterService) getBlockTime(currentBlockHeight uint64, blockTime time.
 	return result.Seconds()
 }
 
-func (ms *MinterService) getValidatorModels(validatorsData []minter_api.Validator) []models.Validator {
+func (ms *MinterService) getValidatorModels(blockData *minter_api.BlockResult) []models.Validator {
 
 	var result []models.Validator
 
-	for _, v := range validatorsData {
+	for _, v := range blockData.Validators {
 
 		var vld models.Validator
 
-		ms.db.Where("public_key = ?", v.Candidate.PubKey).First(&vld)
+		ms.db.Where("public_key = ?", v.PubKey).First(&vld)
 
 		if vld.ID == 0 {
 			result = append(result, models.Validator{
 				Name:              nil,
-				AccumulatedReward: v.AccumulatedReward,
-				AbsentTimes:       v.AbsentTimes,
-				Address:           v.Candidate.CandidateAddress,
-				TotalStake:        v.Candidate.TotalStake,
-				PublicKey:         v.Candidate.PubKey,
-				Commission:        v.Candidate.Commission,
-				CreatedAtBlock:    v.Candidate.CreatedAtBlock,
-				Status:            v.Candidate.Status,
+				AccumulatedReward: `0`,
+				AbsentTimes:       0,
+				Address:           ``,
+				TotalStake:        `0`,
+				PublicKey:         v.PubKey,
+				Commission:        0,
+				CreatedAtBlock:    0,
+				Status:            2,
 			})
 		} else if vld.ID != 0 {
-			vld.TotalStake = v.Candidate.TotalStake
-			vld.AccumulatedReward = v.AccumulatedReward
-			vld.AbsentTimes = v.AbsentTimes
-			vld.Status = v.Candidate.Status
 			result = append(result, vld)
 		}
 
@@ -410,28 +408,28 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 	return nil
 }
 
-func getEventsModelsFromApiData(blockData *minter_api.BlockResult) events {
-	var rewards []models.Reward
-	var slashes []models.Slash
-	for _, event := range blockData.Events {
-		if event.Type == `minter/RewardEvent` {
-			rewards = append(rewards, models.Reward{
-				Role:        event.Value.Role,
-				Amount:      event.Value.Amount,
-				Address:     event.Value.Address,
-				ValidatorPk: event.Value.ValidatorPubKey,
-			})
-		} else if event.Type == `minter/SlashEvent` {
-			slashes = append(slashes, models.Slash{
-				Coin:        event.Value.Coin,
-				Amount:      event.Value.Amount,
-				Address:     event.Value.Address,
-				ValidatorPk: event.Value.ValidatorPubKey,
-			})
-		}
-	}
-	return events{
-		Rewards: rewards,
-		Slashes: slashes,
-	}
-}
+//func getEventsModelsFromApiData(blockData *minter_api.BlockResult) events {
+//	var rewards []models.Reward
+//	var slashes []models.Slash
+//	for _, event := range blockData.Events {
+//		if event.Type == `minter/RewardEvent` {
+//			rewards = append(rewards, models.Reward{
+//				Role:        event.Value.Role,
+//				Amount:      event.Value.Amount,
+//				Address:     event.Value.Address,
+//				ValidatorPk: event.Value.ValidatorPubKey,
+//			})
+//		} else if event.Type == `minter/SlashEvent` {
+//			slashes = append(slashes, models.Slash{
+//				Coin:        event.Value.Coin,
+//				Amount:      event.Value.Amount,
+//				Address:     event.Value.Address,
+//				ValidatorPk: event.Value.ValidatorPubKey,
+//			})
+//		}
+//	}
+//	return events{
+//		Rewards: rewards,
+//		Slashes: slashes,
+//	}
+//}
