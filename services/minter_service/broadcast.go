@@ -41,7 +41,7 @@ func (mbs *MinterBroadcastService) Transaction(tx *models.Transaction) {
 }
 
 func (mbs *MinterBroadcastService) Balance(b *models.Balance) {
-	msg, _ := json.Marshal(b)
+	msg, _ := json.Marshal(b.GetResponse())
 	mbs.publish(b.Address, []byte(msg))
 }
 
