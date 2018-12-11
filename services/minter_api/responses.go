@@ -32,6 +32,11 @@ type ValidatorsResponse struct {
 	Result []Validator `json:"result"`
 }
 
+type CandidateResponse struct {
+	Response
+	Result Candidate `json:"result"`
+}
+
 type CoinInfoResponse struct {
 	Response
 	Result CoinInfoResult `json:"result"`
@@ -120,12 +125,12 @@ type Validator struct {
 	PubKey string `json:"pubkey"`
 }
 
-type candidate struct {
+type Candidate struct {
 	CandidateAddress string `json:"candidate_address"`
 	TotalStake       string `json:"total_stake"`
 	PubKey           string `json:"pub_key"`
-	Commission       uint   `json:"commission"`
-	CreatedAtBlock   uint   `json:"created_at_block"`
+	Commission       string `json:"commission"`
+	CreatedAtBlock   string `json:"created_at_block"`
 	Status           byte   `json:"status"`
 	Stakes           []stake
 }

@@ -136,6 +136,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 	blockModel.Validators = ms.getValidatorModels(blockData)
 
 	ms.db.Create(&blockModel)
+	go ms.updateValidatorsInfo(&blockModel)
 	go ms.bs.Block(&blockModel)
 }
 
@@ -248,6 +249,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.B
 			PubKey:               tx.Data.PubKey,
 			Status:               status,
 			Threshold:            nil,
+			Log:                  tx.Log,
 		}
 
 		if tx.Data.Commission != nil {
@@ -375,6 +377,33 @@ func (ms *MinterService) updateAddressBalance(address string) {
 		go ms.bs.Balance(&balance)
 	}
 	ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
+}
+
+func (ms *MinterService) updateValidatorsInfo(blockModel *models.Block) {
+	for _, candidate := range blockModel.Validators {
+		ms.updateValidatorInfo(candidate.PublicKey)
+	}
+}
+
+func (ms *MinterService) updateValidatorInfo(pubKey string) {
+	var validator models.Validator
+
+	response, err := ms.api.GetCandidateInfo(pubKey)
+	helpers.CheckErr(err)
+	ms.db.Where("public_key = ?", pubKey).First(&validator)
+
+	if validator.ID != 0 {
+		commission, err := strconv.ParseUint(response.Result.Commission, 10, 8)
+		helpers.CheckErr(err)
+		createdAtBlock, err := strconv.ParseUint(response.Result.CreatedAtBlock, 10, 64)
+		helpers.CheckErr(err)
+		validator.Address = response.Result.CandidateAddress
+		validator.TotalStake = response.Result.TotalStake
+		validator.Commission = uint8(commission)
+		validator.CreatedAtBlock = createdAtBlock
+		validator.Status = response.Result.Status
+		ms.db.Save(&validator)
+	}
 }
 
 func stripHtmlTags(str *string) *string {

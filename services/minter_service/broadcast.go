@@ -33,11 +33,13 @@ func (mbs *MinterBroadcastService) Block(b *models.Block) {
 
 func (mbs *MinterBroadcastService) Transaction(tx *models.Transaction) {
 	ch := `transactions`
-	msg, err := json.Marshal(tx.GetResponse())
-	if err != nil {
-		log.Printf(`Error parse json: %s`, err)
+	if tx.Status {
+		msg, err := json.Marshal(tx.GetResponse())
+		if err != nil {
+			log.Printf(`Error parse json: %s`, err)
+		}
+		mbs.publish(ch, msg)
 	}
-	mbs.publish(ch, msg)
 }
 
 func (mbs *MinterBroadcastService) Balance(b *models.Balance) {
