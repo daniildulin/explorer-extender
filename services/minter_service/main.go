@@ -343,7 +343,7 @@ func (ms *MinterService) updateCoin(coin *string) {
 		helpers.CheckErr(err)
 	}
 
-	if data.Error.Code == 404 {
+	if data.Error != nil && data.Error.Code == 404 {
 		ms.db.Exec(`DELETE FROM coins WHERE symbol = ?`, coin)
 		log.Printf(`Coin %s have been deleted`, *coin)
 	} else {
@@ -408,8 +408,33 @@ func (ms *MinterService) updateValidatorInfo(pubKey string) {
 		validator.Commission = uint8(commission)
 		validator.CreatedAtBlock = createdAtBlock
 		validator.Status = response.Result.Status
+		validator.Stakes = ms.getStakeModelsFromNodeAPI(response, validator.ID)
 		ms.db.Save(&validator)
 	}
+}
+
+func (ms *MinterService) getStakeModelsFromNodeAPI(response *responses.CandidateResponse, validatorId uint64) []models.Stake {
+	var result []models.Stake
+
+	for _, stake := range response.Result.Stakes {
+		var s models.Stake
+		ms.db.Where("validator_id = ? AND owner = ? AND coin = ?", validatorId, stake.Owner, stake.Coin).First(&s)
+
+		if s.ID != 0 {
+			s.Value = stake.Value
+			s.BipValue = stake.BipValue
+			result = append(result, s)
+		} else {
+			result = append(result, models.Stake{
+				Value:    stake.Value,
+				BipValue: stake.BipValue,
+				Coin:     stake.Coin,
+				Owner:    stake.Owner,
+			})
+		}
+	}
+
+	return result
 }
 
 func stripHtmlTags(str *string) *string {

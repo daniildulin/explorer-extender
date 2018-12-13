@@ -13,6 +13,7 @@ type Validator struct {
 	Commission        uint8   `json:"commission"`
 	CreatedAtBlock    uint64  `json:"created_at_block"`
 	Status            byte    `json:"status"`
+	Stakes            []Stake
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DeletedAt         *time.Time
