@@ -6,7 +6,8 @@ import (
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
-	"github.com/daniildulin/explorer-extender/services/minter_api"
+	"github.com/daniildulin/minter-node-api"
+	"github.com/daniildulin/minter-node-api/responses"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
 	"log"
@@ -23,15 +24,23 @@ type events struct {
 type MinterService struct {
 	db     *gorm.DB
 	config env.Config
-	api    *minter_api.MinterApi
+	api    *minter_node_api.MinterNodeApi
 	bs     *MinterBroadcastService
 }
 
-func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi, wsClient *MinterBroadcastService) *MinterService {
+func New(config env.Config, db *gorm.DB, wsClient *MinterBroadcastService) *MinterService {
+
+	apiLink := `http`
+	if config.GetBool(`minterApi.isSecure`) {
+		apiLink += `s://` + config.GetString(`minterApi.link`) + `:` + config.GetString(`minterApi.port`)
+	} else {
+		apiLink += `://` + config.GetString(`minterApi.link`) + `:` + config.GetString(`minterApi.port`)
+	}
+
 	return &MinterService{
 		db:     db,
 		config: config,
-		api:    minterApi,
+		api:    minter_node_api.New(apiLink),
 		bs:     wsClient,
 	}
 }
@@ -39,8 +48,7 @@ func New(config env.Config, db *gorm.DB, minterApi *minter_api.MinterApi, wsClie
 func (ms *MinterService) Run() {
 
 	currentDBBlock := ms.getLastBlockFromDB()
-	lastApiBlock, err := ms.api.GetLastBlock()
-	helpers.CheckErr(err)
+	lastApiBlock := ms.getLastBlockFromNode()
 
 	if currentDBBlock >= 1 {
 		ms.deleteBlockData(currentDBBlock)
@@ -48,7 +56,7 @@ func (ms *MinterService) Run() {
 		currentDBBlock = 1
 	}
 
-	log.Printf("Connect to %s", ms.config.GetString("minterApi.link"))
+	log.Printf("Connect to %s", ms.api.GetLink())
 	log.Printf("Start from block %d", currentDBBlock)
 
 	for {
@@ -61,17 +69,24 @@ func (ms *MinterService) Run() {
 				log.Printf("Time of processing %s for block %s", elapsed, fmt.Sprint(currentDBBlock))
 			}
 		} else {
-			lastApiBlock, _ = ms.api.GetLastBlock()
+			lastApiBlock = ms.getLastBlockFromNode()
 		}
 	}
 }
 
-func (ms *MinterService) GetActiveNodesCount() int {
-	return ms.api.GetActiveNodesCount()
-}
+//func (ms *MinterService) GetActiveNodesCount() int {
+//	return ms.api.GetActiveNodesCount()
+//}
+//func (ms *MinterService) UpdateApiNodesList() {
+//	ms.api.GetActualNodes()
+//}
 
-func (ms *MinterService) UpdateApiNodesList() {
-	ms.api.GetActualNodes()
+func (ms *MinterService) getLastBlockFromNode() uint64 {
+	status, err := ms.api.GetStatus()
+	helpers.CheckErr(err)
+	lastApiBlock, err := strconv.ParseUint(status.Result.LatestBlockHeight, 10, 64)
+	helpers.CheckErr(err)
+	return lastApiBlock
 }
 
 func (ms *MinterService) getLastBlockFromDB() uint64 {
@@ -91,7 +106,7 @@ func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 	if err != nil {
 		return err
 	}
-	ms.storeBlockToDB(&blockData.Result)
+	ms.storeBlockToDB(blockData)
 	ms.storeBlockEvents(blockHeight)
 	if ms.config.GetBool(`debug`) {
 		log.Printf("Block: %s; Txs: %s; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
@@ -99,8 +114,8 @@ func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 	return nil
 }
 
-func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
-
+func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
+	blockData := br.Result
 	height, err := strconv.Atoi(blockData.Height)
 	helpers.CheckErr(err)
 	if height <= 0 {
@@ -125,7 +140,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 	}
 
 	if blockModel.TxCount > 0 {
-		blockModel.Transactions = ms.getTransactionModelsFromApiData(blockData)
+		blockModel.Transactions = ms.getTransactionModelsFromApiData(br)
 		for i, tx := range blockModel.Transactions {
 			if i <= 19 {
 				go ms.bs.Transaction(&tx)
@@ -133,7 +148,7 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 		}
 	}
 
-	blockModel.Validators = ms.getValidatorModels(blockData)
+	blockModel.Validators = ms.getValidatorModels(br)
 
 	ms.db.Create(&blockModel)
 	go ms.updateValidatorsInfo(&blockModel)
@@ -141,12 +156,9 @@ func (ms *MinterService) storeBlockToDB(blockData *minter_api.BlockResult) {
 }
 
 func (ms *MinterService) storeBlockEvents(blockHeight uint64) {
-
 	response, err := ms.api.GetBlockEvents(blockHeight)
 	helpers.CheckErr(err)
-
-	events := getEventsModelsFromApiData(&response.Result, blockHeight)
-
+	events := getEventsModelsFromApiData(response, blockHeight)
 	for _, e := range events.Slashes {
 		ms.db.Create(&e)
 	}
@@ -172,16 +184,12 @@ func (ms *MinterService) getBlockTime(currentBlockHeight uint64, blockTime time.
 	return result.Seconds()
 }
 
-func (ms *MinterService) getValidatorModels(blockData *minter_api.BlockResult) []models.Validator {
-
+func (ms *MinterService) getValidatorModels(response *responses.BlockResponse) []models.Validator {
 	var result []models.Validator
-
+	blockData := response.Result
 	for _, v := range blockData.Validators {
-
 		var vld models.Validator
-
 		ms.db.Where("public_key = ?", v.PubKey).First(&vld)
-
 		if vld.ID == 0 {
 			result = append(result, models.Validator{
 				Name:              nil,
@@ -202,7 +210,9 @@ func (ms *MinterService) getValidatorModels(blockData *minter_api.BlockResult) [
 	return result
 }
 
-func (ms *MinterService) getTransactionModelsFromApiData(blockData *minter_api.BlockResult) []models.Transaction {
+func (ms *MinterService) getTransactionModelsFromApiData(response *responses.BlockResponse) []models.Transaction {
+
+	blockData := response.Result
 
 	txCount, err := strconv.Atoi(blockData.TxCount)
 	helpers.CheckErr(err)
@@ -325,18 +335,15 @@ func (ms *MinterService) updateCoins(tx *models.Transaction) {
 }
 
 func (ms *MinterService) updateCoin(coin *string) {
-
 	if coin == nil || *coin == ms.config.GetString(`baseCoin`) {
 		return
 	}
-
 	data, err := ms.api.GetCoinInfo(*coin)
-
 	if err != nil {
-		log.Println(err.Error())
+		helpers.CheckErr(err)
 	}
 
-	if data.Code == 404 {
+	if data.Error.Code == 404 {
 		ms.db.Exec(`DELETE FROM coins WHERE symbol = ?`, coin)
 		log.Printf(`Coin %s have been deleted`, *coin)
 	} else {
@@ -359,7 +366,7 @@ func (ms *MinterService) updateBalances(tx *models.Transaction) {
 
 func (ms *MinterService) updateAddressBalance(address string) {
 	var coinsList []string
-	data, _ := ms.api.GetAddressBalance(address)
+	data, _ := ms.api.GetAddress(address)
 	for coin, amount := range data.Result.Balance {
 		coinsList = append(coinsList, coin)
 		var balance models.Balance
@@ -372,7 +379,6 @@ func (ms *MinterService) updateAddressBalance(address string) {
 			ms.db.Create(&balance)
 		} else {
 			ms.db.Model(&balance).Update("amount", amount)
-			//ms.db.Exec(`UPDATE balances SET amount = ? WHERE id = ? `, amount, balance.ID)
 		}
 		go ms.bs.Balance(&balance)
 	}
@@ -388,7 +394,7 @@ func (ms *MinterService) updateValidatorsInfo(blockModel *models.Block) {
 func (ms *MinterService) updateValidatorInfo(pubKey string) {
 	var validator models.Validator
 
-	response, err := ms.api.GetCandidateInfo(pubKey)
+	response, err := ms.api.GetCandidate(pubKey)
 	helpers.CheckErr(err)
 	ms.db.Where("public_key = ?", pubKey).First(&validator)
 
@@ -424,9 +430,10 @@ func getValueFromTxTag(tags []models.TxTag, tagName string) *string {
 	return nil
 }
 
-func getEventsModelsFromApiData(eventData *minter_api.EventsResult, blockHeight uint64) events {
+func getEventsModelsFromApiData(response *responses.EventsResponse, blockHeight uint64) events {
 	var rewards []models.Reward
 	var slashes []models.Slash
+	eventData := response.Result
 
 	if eventData.Events != nil {
 		for _, event := range *eventData.Events {

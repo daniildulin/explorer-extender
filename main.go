@@ -7,7 +7,6 @@ import (
 	"github.com/daniildulin/explorer-extender/database"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
-	"github.com/daniildulin/explorer-extender/services/minter_api"
 	"github.com/daniildulin/explorer-extender/services/minter_service"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -68,19 +67,17 @@ func main() {
 	})
 
 	mbs := minter_service.NewMinterBroadcast(wsClient)
-
-	minterApi := minter_api.New(config, db, httpClient)
-	minterService := minter_service.New(config, db, minterApi, mbs)
-
-	for {
-		if minterService.GetActiveNodesCount() > 0 {
-			minterService.Run()
-		} else {
-			if config.GetBool(`debug`) {
-				fmt.Println(`Waiting for available node`)
-			}
-			minterService.UpdateApiNodesList()
-			time.Sleep(5 * time.Second)
-		}
-	}
+	minterService := minter_service.New(config, db, mbs)
+	minterService.Run()
+	//for {
+	//	if minterService.GetActiveNodesCount() > 0 {
+	//
+	//	} else {
+	//		if config.GetBool(`debug`) {
+	//			fmt.Println(`Waiting for available node`)
+	//		}
+	//		minterService.UpdateApiNodesList()
+	//		time.Sleep(5 * time.Second)
+	//	}
+	//}
 }

@@ -10,6 +10,17 @@
   version = "v2.0.2"
 
 [[projects]]
+  branch = "master"
+  digest = "1:e4f8c3df476cc99eaa6451c44f3681d5746bda74757f16969298456ac56704b2"
+  name = "github.com/daniildulin/minter-node-api"
+  packages = [
+    ".",
+    "responses",
+  ]
+  pruneopts = "UT"
+  revision = "819564c7ec436ee1980d4c30c82b51cb8baf1826"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -45,15 +56,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:6895fbe5a10c5aebd1965cac6f6905dcdb21bee01e08912d3ba6a805c2485f6a"
+  digest = "1:7e63b12cdd7bef2c411d736cb67e28134d39f5d236aa1bfb8f3d55e3ad709eca"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
     "dialects/postgres",
   ]
   pruneopts = "UT"
-  revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
-  version = "v1.9.1"
+  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
+  version = "v1.9.2"
 
 [[projects]]
   branch = "master"
@@ -111,12 +122,12 @@
   version = "v1.1.2"
 
 [[projects]]
-  digest = "1:516e71bed754268937f57d4ecb190e01958452336fa73dbac880894164e91c1f"
+  digest = "1:08d65904057412fc0270fc4812a1c90c594186819243160dc779a402d4b6d0bc"
   name = "github.com/spf13/cast"
   packages = ["."]
   pruneopts = "UT"
-  revision = "8965335b8c7107321228e3e3702cab9832751bac"
-  version = "v1.2.0"
+  revision = "8c9545af88b134710ab1cd196795e7f2388358d7"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:68ea4e23713989dc20b1bded5d9da2c5f9be14ff9885beef481848edd18c26cb"
@@ -135,20 +146,20 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:214775c11fd26da94a100111a62daa25339198a4f9c57cb4aab352da889f5b93"
+  digest = "1:de37e343c64582d7026bf8ab6ac5b22a72eac54f3a57020db31524affed9f423"
   name = "github.com/spf13/viper"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2c12c60302a5a0e62ee102ca9bc996277c2f64f5"
-  version = "v1.2.1"
+  revision = "6d33b5a963d922d182c91e8a1c88d81fd150cfd4"
+  version = "v1.3.1"
 
 [[projects]]
   branch = "master"
-  digest = "1:c5791551cb1ebd8cd399edad5bc32805661a5c0340515110dd7d5ab0b0508efc"
+  digest = "1:391d584c32997a99b556d2ed9e0333464a2eef452dceba43f8ef65d4bc78731a"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "8a28ead16f52c8aaeffbf79239b251dfdf6c4f96"
+  revision = "73d4af5aa059c8c2dfcf25aad4efd6ce7bc9adc1"
 
 [[projects]]
   digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"
@@ -166,18 +177,20 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:342378ac4dcb378a5448dd723f0784ae519383532f5e70ade24132c4c8693202"
+  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/centrifugal/gocent",
+    "github.com/daniildulin/minter-node-api",
+    "github.com/daniildulin/minter-node-api/responses",
     "github.com/grokify/html-strip-tags-go",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",
