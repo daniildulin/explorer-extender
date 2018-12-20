@@ -150,7 +150,6 @@ func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
 	}
 
 	blockModel.Validators = ms.getValidatorModels(br)
-
 	ms.db.Create(&blockModel)
 	go ms.updateValidatorsInfo(&blockModel)
 	go ms.bs.Block(&blockModel)
@@ -188,26 +187,40 @@ func (ms *MinterService) getBlockTime(currentBlockHeight uint64, blockTime time.
 func (ms *MinterService) getValidatorModels(response *responses.BlockResponse) []models.Validator {
 	var result []models.Validator
 	blockData := response.Result
-	for _, v := range blockData.Validators {
-		var vld models.Validator
-		ms.db.Where("public_key = ?", v.PubKey).First(&vld)
-		if vld.ID == 0 {
-			result = append(result, models.Validator{
-				Name:              nil,
-				AccumulatedReward: `0`,
-				AbsentTimes:       0,
-				Address:           ``,
-				TotalStake:        `0`,
-				PublicKey:         v.PubKey,
-				Commission:        0,
-				CreatedAtBlock:    0,
-				Status:            2,
-			})
-		} else if vld.ID != 0 {
-			result = append(result, vld)
+
+	for _, t := range blockData.Transactions {
+		if t.Type == models.TX_TYPE_DECLARE_CANDIDACY && t.Data.PubKey != nil {
+			result = append(result, ms.getValidatorModelByPublicKey(*t.Data.PubKey))
 		}
 	}
+
+	for _, v := range blockData.Validators {
+		result = append(result, ms.getValidatorModelByPublicKey(v.PubKey))
+	}
+
 	return result
+}
+
+func (ms *MinterService) getValidatorModelByPublicKey(pk string) models.Validator {
+
+	var vld models.Validator
+	ms.db.Where("public_key = ?", pk).First(&vld)
+
+	if vld.ID == 0 {
+		vld = models.Validator{
+			Name:              nil,
+			AccumulatedReward: `0`,
+			AbsentTimes:       0,
+			Address:           ``,
+			TotalStake:        `0`,
+			PublicKey:         pk,
+			Commission:        0,
+			CreatedAtBlock:    0,
+			Status:            0,
+		}
+	}
+
+	return vld
 }
 
 func (ms *MinterService) getTransactionModelsFromApiData(response *responses.BlockResponse) []models.Transaction {
@@ -308,6 +321,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
 			transaction.ValueToBuy = tx.Data.ValueToBuy
 		}
+
 		go ms.updateBalances(&transaction)
 		go ms.updateCoins(&transaction)
 		result[i] = transaction
