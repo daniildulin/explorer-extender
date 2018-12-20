@@ -17,7 +17,7 @@
 
 builds/
 vendor/
+tmp/
 media/
-db_data/
 
 config.json

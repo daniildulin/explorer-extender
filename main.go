@@ -4,10 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"github.com/centrifugal/gocent"
+	"github.com/daniildulin/explorer-extender/core"
 	"github.com/daniildulin/explorer-extender/database"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
-	"github.com/daniildulin/explorer-extender/services/minter_service"
+	"github.com/daniildulin/explorer-extender/metrics"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"net/http"
@@ -41,6 +42,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	go metrics.Run(config)
+
 	db, err := gorm.Open("postgres", config.GetString(`database.url`))
 	helpers.CheckErr(err)
 	defer db.Close()
@@ -66,18 +69,7 @@ func main() {
 		HTTPClient: httpClient,
 	})
 
-	mbs := minter_service.NewMinterBroadcast(wsClient)
-	minterService := minter_service.New(config, db, mbs)
+	mbs := core.NewMinterBroadcast(wsClient)
+	minterService := core.New(config, db, mbs)
 	minterService.Run()
-	//for {
-	//	if minterService.GetActiveNodesCount() > 0 {
-	//
-	//	} else {
-	//		if config.GetBool(`debug`) {
-	//			fmt.Println(`Waiting for available node`)
-	//		}
-	//		minterService.UpdateApiNodesList()
-	//		time.Sleep(5 * time.Second)
-	//	}
-	//}
 }

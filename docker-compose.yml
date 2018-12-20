@@ -5,10 +5,17 @@ services:
     image: postgres
     restart: always
     ports:
-      - 54322:5432
+      - 5432:5432
     environment:
-      POSTGRES_DB: explorer_db
-      POSTGRES_USER: minter_adm
+      POSTGRES_DB: explorer
+      POSTGRES_USER: minter
       POSTGRES_PASSWORD: password
     volumes:
-      - ./db_data:/var/lib/postgresql/data
+      - ./tmp/postgresql:/var/lib/postgresql/data
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./tmp/prometheus:/etc/prometheus
+      - ./tmp/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090

@@ -1,4 +1,4 @@
-package minter_service
+package core
 
 import (
 	"context"

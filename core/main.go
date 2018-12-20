@@ -1,4 +1,4 @@
-package minter_service
+package core
 
 import (
 	"encoding/base64"
@@ -62,7 +62,8 @@ func (ms *MinterService) Run() {
 	for {
 		if currentDBBlock <= lastApiBlock {
 			start := time.Now()
-			ms.storeDataToDb(currentDBBlock)
+			err := ms.storeDataToDb(currentDBBlock)
+			helpers.CheckErr(err)
 			elapsed := time.Since(start)
 			currentDBBlock++
 			if ms.config.GetBool(`debug`) {
@@ -116,15 +117,15 @@ func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 
 func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
 	blockData := br.Result
-	height, err := strconv.Atoi(blockData.Height)
+	height, err := strconv.ParseUint(blockData.Height, 10, 64)
 	helpers.CheckErr(err)
 	if height <= 0 {
 		return
 	}
 
-	txCount, err := strconv.Atoi(blockData.TxCount)
+	txCount, err := strconv.ParseUint(blockData.TxCount, 10, 32)
 	helpers.CheckErr(err)
-	size, err := strconv.Atoi(blockData.Size)
+	size, err := strconv.ParseUint(blockData.Size, 10, 32)
 	helpers.CheckErr(err)
 
 	blockModel := models.Block{
@@ -205,7 +206,6 @@ func (ms *MinterService) getValidatorModels(response *responses.BlockResponse) [
 		} else if vld.ID != 0 {
 			result = append(result, vld)
 		}
-
 	}
 	return result
 }
@@ -214,7 +214,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 
 	blockData := response.Result
 
-	txCount, err := strconv.Atoi(blockData.TxCount)
+	txCount, err := strconv.ParseUint(blockData.TxCount, 10, 16)
 	helpers.CheckErr(err)
 
 	var result = make([]models.Transaction, txCount)
@@ -341,12 +341,10 @@ func (ms *MinterService) updateCoin(coin *string) {
 	data, err := ms.api.GetCoinInfo(*coin)
 	if err != nil {
 		helpers.CheckErr(err)
-	}
-
-	if data.Error != nil && data.Error.Code == 404 {
-		ms.db.Exec(`DELETE FROM coins WHERE symbol = ?`, coin)
-		log.Printf(`Coin %s have been deleted`, *coin)
-	} else {
+	} else if data.Error == nil {
+		//	ms.db.Exec(`DELETE FROM coins WHERE symbol = ?`, coin)
+		//	log.Printf(`Coin %s have been deleted`, *coin)
+		//} else {
 		var c models.Coin
 		ms.db.Where("symbol = ?", coin).First(&c)
 		ms.db.Model(&c).Updates(map[string]interface{}{
@@ -367,22 +365,26 @@ func (ms *MinterService) updateBalances(tx *models.Transaction) {
 func (ms *MinterService) updateAddressBalance(address string) {
 	var coinsList []string
 	data, _ := ms.api.GetAddress(address)
-	for coin, amount := range data.Result.Balance {
-		coinsList = append(coinsList, coin)
-		var balance models.Balance
-		ms.db.Where("address = ? AND  coin = ?", address, coin).First(&balance)
 
-		if balance.ID == 0 {
-			balance.Address = address
-			balance.Coin = coin
-			balance.Amount = amount
-			ms.db.Create(&balance)
-		} else {
-			ms.db.Model(&balance).Update("amount", amount)
+	if data != nil && data.Error == nil {
+		for coin, amount := range data.Result.Balance {
+			coinsList = append(coinsList, coin)
+			var balance models.Balance
+
+			ms.db.Where("address = ? AND  coin = ?", address, coin).First(&balance)
+
+			if balance.ID == 0 {
+				balance.Address = address
+				balance.Coin = coin
+				balance.Amount = amount
+				ms.db.Create(&balance)
+			} else {
+				ms.db.Model(&balance).Update("amount", amount)
+			}
+			go ms.bs.Balance(&balance)
 		}
-		go ms.bs.Balance(&balance)
+		ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
 	}
-	ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
 }
 
 func (ms *MinterService) updateValidatorsInfo(blockModel *models.Block) {
