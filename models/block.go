@@ -60,7 +60,7 @@ type BlockResponse struct {
 	BlockTime         float64   `json:"blockTime"`
 }
 
-func NewBlockResponse(hash string, height uint64, reward string, size uint32, txCount uint32, timestamp time.Time,
+func NewBlockResponse(hash string, height uint64, reward string, size uint32, txCount uint32, txTotal uint64, timestamp time.Time,
 	latestBlockHeight uint32, blockTime float64) *BlockResponse {
 	return &BlockResponse{
 		Hash:              hash,
@@ -68,6 +68,7 @@ func NewBlockResponse(hash string, height uint64, reward string, size uint32, tx
 		Reward:            reward,
 		Size:              size,
 		TxCount:           txCount,
+		TxTotal:           txTotal,
 		Timestamp:         timestamp,
 		LatestBlockHeight: latestBlockHeight,
 		BlockTime:         blockTime,
@@ -80,5 +81,5 @@ func (b *Block) GetReward() *big.Float {
 
 func (b *Block) GetResponse() *BlockResponse {
 	return NewBlockResponse(b.Hash, uint64(b.Height), b.GetReward().String(), uint32(b.Size), uint32(b.TxCount),
-		b.CreatedAt, 0, b.BlockTime)
+		b.TxTotal, b.CreatedAt, 0, b.BlockTime)
 }
