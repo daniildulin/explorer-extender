@@ -19,8 +19,10 @@ const TX_TYPE_REDEEM_CHECK = 9
 const TX_TYPE_SET_CANDIDATE_ONLINE = 10
 const TX_TYPE_SET_CANDIDATE_OFFLINE = 11
 const TX_TYPE_MULTI_SIG = 12
+const TX_TYPE_MULTI_SEND = 13
 
-var txType = [12]string{
+var txType = [14]string{
+	`-`,
 	`send`,
 	`sellCoin`,
 	`sellAllCoin`,
@@ -33,6 +35,7 @@ var txType = [12]string{
 	`setCandidateOnData`,
 	`setCandidateOffData`,
 	`multiSig`,
+	`multiSend`,
 }
 
 type Transaction struct {
@@ -96,7 +99,12 @@ func (tx Transaction) GetFee() *big.Float {
 }
 
 func (tx Transaction) GetTypeString() string {
-	return txType[tx.Type-1]
+
+	if int(tx.Type) > len(txType)+1 {
+		return `Unknown transaction type`
+	}
+
+	return txType[tx.Type]
 }
 
 func (tx Transaction) GetStatusString() string {

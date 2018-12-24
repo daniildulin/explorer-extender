@@ -2,7 +2,9 @@ package core
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/MinterTeam/minter-go-node/core/check"
 	"github.com/daniildulin/explorer-extender/env"
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
@@ -266,8 +268,6 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			InitialAmount:        tx.Data.InitialAmount,
 			InitialReserve:       tx.Data.InitialReserve,
 			ConstantReserveRatio: nil,
-			RawCheck:             tx.Data.RawCheck,
-			Proof:                tx.Data.Proof,
 			Coin:                 stripHtmlTags(tx.Data.Coin),
 			PubKey:               tx.Data.PubKey,
 			Status:               status,
@@ -320,6 +320,22 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 		if tx.Type == models.TX_TYPE_BUY_COIN {
 			transaction.ValueToSell = getValueFromTxTag(tags, `tx.return`)
 			transaction.ValueToBuy = tx.Data.ValueToBuy
+		}
+
+		if tx.Type == models.TX_TYPE_REDEEM_CHECK {
+			c, err := check.DecodeFromBytes(*tx.Data.RawCheck)
+			helpers.CheckErr(err)
+			bCheck, err := json.Marshal(struct {
+				Nonce    uint64 `json:"nonce"`
+				DueBlock uint64 `json:"due_block"`
+				Coin     string `json:"coin"`
+				Value    uint64 `json:"value"`
+				Lock     uint64 `json:"lock"`
+			}{c.Nonce, c.DueBlock, c.Coin.String(), c.Value.Uint64(), c.Lock.Uint64()})
+			helpers.CheckErr(err)
+			strCheck := string(bCheck)
+			transaction.RawCheck = &strCheck
+			transaction.Proof = tx.Data.Proof
 		}
 
 		go ms.updateBalances(&transaction)
