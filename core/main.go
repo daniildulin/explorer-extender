@@ -127,6 +127,8 @@ func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
 
 	txCount, err := strconv.ParseUint(blockData.TxCount, 10, 32)
 	helpers.CheckErr(err)
+	txTotal, err := strconv.ParseUint(blockData.TotalTx, 10, 64)
+	helpers.CheckErr(err)
 	size, err := strconv.ParseUint(blockData.Size, 10, 32)
 	helpers.CheckErr(err)
 
@@ -135,6 +137,7 @@ func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
 		Hash:        `Mh` + strings.ToLower(blockData.Hash),
 		Height:      uint64(height),
 		TxCount:     uint16(txCount),
+		TxTotal:     txTotal,
 		CreatedAt:   blockData.Time,
 		Timestamp:   blockData.Time.UnixNano(),
 		Size:        uint16(size),
