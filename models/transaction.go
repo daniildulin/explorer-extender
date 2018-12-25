@@ -78,6 +78,7 @@ type Transaction struct {
 	UpdatedAt            time.Time
 	DeletedAt            *time.Time
 	Tags                 []TxTag
+	MultiSendReceivers   []MultiSendReceiver
 }
 
 type TransactionResponse struct {

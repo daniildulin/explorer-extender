@@ -21,6 +21,7 @@ func Migrate(db *gorm.DB, config env.Config) {
 		&models.MinterNode{},
 		&models.Balance{},
 		&models.Stake{},
+		&models.MultiSendReceiver{},
 	)
 
 	db.Exec("CREATE TABLE IF NOT EXISTS block_validator (block_id INT REFERENCES blocks (id) ON DELETE CASCADE, validator_id INT REFERENCES validators (id) ON DELETE CASCADE)")

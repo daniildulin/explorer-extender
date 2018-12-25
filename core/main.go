@@ -348,6 +348,10 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			transaction.Check = &jsonCheck
 		}
 
+		if tx.Type == models.TX_TYPE_MULTI_SEND && tx.Data.ReceiversList != nil {
+			transaction.MultiSendReceivers = getTxReceivers(tx)
+		}
+
 		go ms.updateBalances(&transaction)
 		go ms.updateCoins(&transaction)
 		result[i] = transaction
@@ -528,4 +532,16 @@ func getEventsModelsFromApiData(response *responses.EventsResponse, blockHeight 
 		Rewards: rewards,
 		Slashes: slashes,
 	}
+}
+
+func getTxReceivers(response responses.Transaction) []models.MultiSendReceiver {
+	var result []models.MultiSendReceiver
+	for _, r := range *response.Data.ReceiversList {
+		result = append(result, models.MultiSendReceiver{
+			Coin:  r.Coin,
+			To:    r.To,
+			Value: r.Value,
+		})
+	}
+	return result
 }
