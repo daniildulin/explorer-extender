@@ -4,7 +4,7 @@ import "time"
 
 type Coin struct {
 	ID             uint64 `gorm:"primary_key"`
-	Symbol         string `json:"symbol"          gorm:"type:varchar(255)"`
+	Symbol         string `json:"symbol"          gorm:"type:varchar(255);unique_index"`
 	Name           string `json:"name"            gorm:"type:varchar(255)"`
 	Crr            uint64 `json:"crr"             gorm:"type:int"`
 	Volume         string `json:"volume"          gorm:"type:numeric(300)"`

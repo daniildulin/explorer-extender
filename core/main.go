@@ -12,6 +12,7 @@ import (
 	"github.com/daniildulin/minter-node-api/responses"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
+	"github.com/jinzhu/gorm/dialects/postgres"
 	"log"
 	"strconv"
 	"strings"
@@ -326,19 +327,25 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 		}
 
 		if tx.Type == models.TX_TYPE_REDEEM_CHECK {
-			c, err := check.DecodeFromBytes(*tx.Data.RawCheck)
+			rawCheck := *tx.Data.RawCheck
+			c, err := check.DecodeFromBytes(rawCheck)
+			helpers.CheckErr(err)
+			sender, err := c.Sender()
 			helpers.CheckErr(err)
 			bCheck, err := json.Marshal(struct {
 				Nonce    uint64 `json:"nonce"`
 				DueBlock uint64 `json:"due_block"`
 				Coin     string `json:"coin"`
-				Value    uint64 `json:"value"`
-				Lock     uint64 `json:"lock"`
-			}{c.Nonce, c.DueBlock, c.Coin.String(), c.Value.Uint64(), c.Lock.Uint64()})
+				Value    string `json:"value"`
+				Sender   string `json:"sender"`
+			}{c.Nonce, c.DueBlock, c.Coin.String(), c.Value.String(), sender.String()})
 			helpers.CheckErr(err)
 			strCheck := string(bCheck)
-			transaction.RawCheck = &strCheck
+			jsonCheck := postgres.Jsonb{json.RawMessage(strCheck)}
+			strRawCheck := fmt.Sprintf("%x", rawCheck)
+			transaction.RawCheck = &strRawCheck
 			transaction.Proof = tx.Data.Proof
+			transaction.Check = &jsonCheck
 		}
 
 		go ms.updateBalances(&transaction)
@@ -401,14 +408,14 @@ func (ms *MinterService) updateAddressBalance(address string) {
 
 	if data != nil && data.Error == nil {
 		for coin, amount := range data.Result.Balance {
-			coinsList = append(coinsList, coin)
+			coinsList = append(coinsList, strings.ToUpper(coin))
 			var balance models.Balance
 
-			ms.db.Where("address = ? AND  coin = ?", address, coin).First(&balance)
+			ms.db.Where("address = ? AND  coin = ?", strings.Title(address), strings.ToUpper(coin)).First(&balance)
 
 			if balance.ID == 0 {
-				balance.Address = address
-				balance.Coin = coin
+				balance.Address = strings.Title(address)
+				balance.Coin = strings.ToUpper(coin)
 				balance.Amount = amount
 				ms.db.Create(&balance)
 			} else {
@@ -416,7 +423,7 @@ func (ms *MinterService) updateAddressBalance(address string) {
 			}
 			go ms.bs.Balance(&balance)
 		}
-		ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, address, coinsList)
+		ms.db.Exec(`DELETE FROM balances WHERE address = ? AND coin NOT IN (?) `, strings.Title(address), coinsList)
 	}
 }
 

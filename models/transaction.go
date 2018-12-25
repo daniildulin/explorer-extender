@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"github.com/daniildulin/explorer-extender/helpers"
+	"github.com/jinzhu/gorm/dialects/postgres"
 	"math/big"
 	"time"
 )
@@ -39,39 +40,40 @@ var txType = [14]string{
 }
 
 type Transaction struct {
-	ID                   uint64  `gorm:"primary_key"`
-	BlockID              uint64  `json:"block_id"               gorm:"type:bigint"`
-	Type                 uint8   `json:"type"`
-	From                 string  `json:"from"                   gorm:"type:varchar(100)"`
-	To                   *string `json:"to"                     gorm:"type:varchar(100)"`
-	Hash                 string  `json:"hash"                   gorm:"type:varchar(100)"`
-	PubKey               *string `json:"pub_key"                gorm:"type:varchar(255)"`
-	Value                *string `json:"value"                  gorm:"type:numeric(300,0)"`
-	ValueToSell          *string `json:"value_to_sell"          gorm:"type:numeric(300,0)"`
-	ValueToBuy           *string `json:"value_to_buy"           gorm:"type:numeric(300,0)"`
-	Fee                  uint64  `json:"fee"                    gorm:"type:numeric(300,0)"`
-	Stake                *string `json:"stake"                  gorm:"type:numeric(300,0)"`
-	Commission           *uint64 `json:"Commission"             gorm:"type:numeric(300,0)"`
-	InitialAmount        *string `json:"initial_amount"         gorm:"type:numeric(300,0)"`
-	InitialReserve       *string `json:"initial_reserve"        gorm:"type:numeric(50,0)"`
-	ConstantReserveRatio *uint64 `json:"constant_reserve_ratio" gorm:"type:numeric(300,0)"`
-	GasWanted            *string `json:"gas_wanted"             gorm:"type:numeric(300,0)"`
-	GasUsed              *string `json:"gas_used"               gorm:"type:numeric(300,0)"`
-	GasPrice             uint64  `json:"gas_price"              gorm:"type:numeric(300,0)"`
-	GasCoin              *string `json:"gas_coin"               gorm:"type:varchar(20)"`
-	Coin                 *string `json:"coin"                   gorm:"type:varchar(255)"`
-	Nonce                uint64  `json:"nonce"`
-	Threshold            *uint64 `json:"threshold"`
-	Payload              string  `json:"payload"                gorm:"type:text"`
-	ServiceData          string  `json:"service_data"           gorm:"type:text"`
-	Address              *string `json:"Address"                gorm:"type:varchar(255)"`
-	CoinToSell           *string `json:"coin_to_sell"           gorm:"type:varchar(25)"`
-	CoinToBuy            *string `json:"coin_to_buy"            gorm:"type:varchar(25)"`
-	RawCheck             *string `json:"raw_check"              gorm:"type:text"`
-	Proof                *string `json:"proof"`
-	Name                 *string `json:"name"`
-	Log                  *string `json:"log"`
-	Status               bool    `json:"status"`
+	ID                   uint64          `gorm:"primary_key"`
+	BlockID              uint64          `json:"block_id"               gorm:"type:bigint"`
+	Type                 uint8           `json:"type"`
+	From                 string          `json:"from"                   gorm:"type:varchar(100)"`
+	To                   *string         `json:"to"                     gorm:"type:varchar(100)"`
+	Hash                 string          `json:"hash"                   gorm:"type:varchar(100)"`
+	PubKey               *string         `json:"pub_key"                gorm:"type:varchar(255)"`
+	Value                *string         `json:"value"                  gorm:"type:numeric(300,0)"`
+	ValueToSell          *string         `json:"value_to_sell"          gorm:"type:numeric(300,0)"`
+	ValueToBuy           *string         `json:"value_to_buy"           gorm:"type:numeric(300,0)"`
+	Fee                  uint64          `json:"fee"                    gorm:"type:numeric(300,0)"`
+	Stake                *string         `json:"stake"                  gorm:"type:numeric(300,0)"`
+	Commission           *uint64         `json:"Commission"             gorm:"type:numeric(300,0)"`
+	InitialAmount        *string         `json:"initial_amount"         gorm:"type:numeric(300,0)"`
+	InitialReserve       *string         `json:"initial_reserve"        gorm:"type:numeric(50,0)"`
+	ConstantReserveRatio *uint64         `json:"constant_reserve_ratio" gorm:"type:numeric(300,0)"`
+	GasWanted            *string         `json:"gas_wanted"             gorm:"type:numeric(300,0)"`
+	GasUsed              *string         `json:"gas_used"               gorm:"type:numeric(300,0)"`
+	GasPrice             uint64          `json:"gas_price"              gorm:"type:numeric(300,0)"`
+	GasCoin              *string         `json:"gas_coin"               gorm:"type:varchar(20)"`
+	Coin                 *string         `json:"coin"                   gorm:"type:varchar(255)"`
+	Nonce                uint64          `json:"nonce"`
+	Threshold            *uint64         `json:"threshold"`
+	Payload              string          `json:"payload"                gorm:"type:text"`
+	ServiceData          string          `json:"service_data"           gorm:"type:text"`
+	Address              *string         `json:"Address"                gorm:"type:varchar(255)"`
+	CoinToSell           *string         `json:"coin_to_sell"           gorm:"type:varchar(25)"`
+	CoinToBuy            *string         `json:"coin_to_buy"            gorm:"type:varchar(25)"`
+	RawCheck             *string         `json:"raw_check"              gorm:"type:text"`
+	Check                *postgres.Jsonb `json:"check"`
+	Proof                *string         `json:"proof"`
+	Name                 *string         `json:"name"`
+	Log                  *string         `json:"log"`
+	Status               bool            `json:"status"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	DeletedAt            *time.Time
