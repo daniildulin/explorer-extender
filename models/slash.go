@@ -15,3 +15,7 @@ type Slash struct {
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
 }
+
+func (s Slash) GetAddress() string {
+	return s.Address
+}

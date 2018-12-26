@@ -78,13 +78,6 @@ func (ms *MinterService) Run() {
 	}
 }
 
-//func (ms *MinterService) GetActiveNodesCount() int {
-//	return ms.api.GetActiveNodesCount()
-//}
-//func (ms *MinterService) UpdateApiNodesList() {
-//	ms.api.GetActualNodes()
-//}
-
 func (ms *MinterService) getLastBlockFromNode() uint64 {
 	status, err := ms.api.GetStatus()
 	helpers.CheckErr(err)
@@ -165,10 +158,13 @@ func (ms *MinterService) storeBlockEvents(blockHeight uint64) {
 	response, err := ms.api.GetBlockEvents(blockHeight)
 	helpers.CheckErr(err)
 	events := getEventsModelsFromApiData(response, blockHeight)
+
 	for _, e := range events.Slashes {
+		ms.updateBalancesFromEvents(e)
 		ms.db.Create(&e)
 	}
 	for _, e := range events.Rewards {
+		ms.updateBalancesFromEvents(e)
 		ms.db.Create(&e)
 	}
 }
@@ -352,7 +348,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			transaction.MultiSendReceivers = getTxReceivers(tx)
 		}
 
-		go ms.updateBalances(&transaction)
+		go ms.updateBalancesFromTransactions(&transaction)
 		go ms.updateCoins(&transaction)
 		result[i] = transaction
 	}
@@ -399,11 +395,14 @@ func (ms *MinterService) updateCoin(coin *string) {
 	}
 }
 
-func (ms *MinterService) updateBalances(tx *models.Transaction) {
+func (ms *MinterService) updateBalancesFromTransactions(tx *models.Transaction) {
 	ms.updateAddressBalance(tx.From)
 	if tx.To != nil && *tx.To != tx.From {
 		ms.updateAddressBalance(*tx.To)
 	}
+}
+func (ms *MinterService) updateBalancesFromEvents(e models.Event) {
+	ms.updateAddressBalance(e.GetAddress())
 }
 
 func (ms *MinterService) updateAddressBalance(address string) {

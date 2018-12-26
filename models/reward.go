@@ -15,3 +15,7 @@ type Reward struct {
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
 }
+
+func (r Reward) GetAddress() string {
+	return r.Address
+}
