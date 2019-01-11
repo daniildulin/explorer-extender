@@ -69,7 +69,7 @@ func main() {
 		HTTPClient: httpClient,
 	})
 
-	mbs := core.NewMinterBroadcast(wsClient)
+	mbs := core.NewMinterBroadcast(wsClient, httpClient)
 	minterService := core.New(config, db, mbs)
 	minterService.Run()
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/daniildulin/explorer-extender/helpers"
 	"github.com/daniildulin/explorer-extender/models"
 	"github.com/daniildulin/minter-node-api"
+	api_errors "github.com/daniildulin/minter-node-api/errors"
 	"github.com/daniildulin/minter-node-api/responses"
 	"github.com/grokify/html-strip-tags-go"
 	"github.com/jinzhu/gorm"
@@ -68,7 +69,17 @@ func (ms *MinterService) Run() {
 			err := ms.storeDataToDb(currentDBBlock)
 			helpers.CheckErr(err)
 			elapsed := time.Since(start)
-			currentDBBlock++
+			if err == nil {
+				currentDBBlock++
+			} else {
+				switch e := err.(type) {
+				case *api_errors.NodeError:
+					log.Println(e.Error())
+				default:
+					//TODO: Switch node
+					//ms.api.SetLink(`new node link`)
+				}
+			}
 			if ms.config.GetBool(`debug`) {
 				log.Printf("Time of processing %s for block %s", elapsed, fmt.Sprint(currentDBBlock))
 			}
@@ -104,7 +115,6 @@ func (ms *MinterService) storeDataToDb(blockHeight uint64) error {
 		return err
 	}
 	ms.storeBlockToDB(blockData)
-	ms.storeBlockEvents(blockHeight)
 	if ms.config.GetBool(`debug`) {
 		log.Printf("Block: %s; Txs: %s; Hash: %s", blockData.Result.Height, blockData.Result.TxCount, blockData.Result.Hash)
 	}
@@ -139,19 +149,30 @@ func (ms *MinterService) storeBlockToDB(br *responses.BlockResponse) {
 		BlockReward: blockData.BlockReward,
 	}
 
-	if blockModel.TxCount > 0 {
-		blockModel.Transactions = ms.getTransactionModelsFromApiData(br)
-		for i, tx := range blockModel.Transactions {
+	blockModel.Validators = ms.getValidatorModels(br)
+	ms.db.Create(&blockModel)
+
+	go ms.storeTransactionsToDB(br)
+	go ms.storeBlockEvents(height)
+	go ms.updateValidatorsInfo(&blockModel)
+	go ms.bs.Block(&blockModel)
+	go ms.bs.StatusPage()
+}
+
+func (ms *MinterService) storeTransactionsToDB(br *responses.BlockResponse) {
+	blockData := br.Result
+	txCount, err := strconv.ParseUint(blockData.TxCount, 10, 32)
+	helpers.CheckErr(err)
+
+	if txCount > 0 {
+		transactions := ms.getTransactionModelsFromApiData(br)
+		for i, tx := range transactions {
+			ms.db.Create(&tx)
 			if i <= 19 {
 				go ms.bs.Transaction(&tx)
 			}
 		}
 	}
-
-	blockModel.Validators = ms.getValidatorModels(br)
-	ms.db.Create(&blockModel)
-	go ms.updateValidatorsInfo(&blockModel)
-	go ms.bs.Block(&blockModel)
 }
 
 func (ms *MinterService) storeBlockEvents(blockHeight uint64) {
@@ -231,6 +252,8 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 
 	txCount, err := strconv.ParseUint(blockData.TxCount, 10, 16)
 	helpers.CheckErr(err)
+	height, err := strconv.ParseUint(blockData.Height, 10, 64)
+	helpers.CheckErr(err)
 
 	var result = make([]models.Transaction, txCount)
 
@@ -247,6 +270,7 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 		helpers.CheckErr(err)
 
 		transaction := models.Transaction{
+			BlockID:              height,
 			Hash:                 strings.Title(tx.Hash),
 			From:                 strings.Title(tx.From),
 			Type:                 tx.Type,
@@ -306,7 +330,9 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 
 		if tx.Type == models.TX_TYPE_CREATE_COIN {
 			transaction.Coin = tx.Data.Symbol
-			ms.createFromTransaction(&transaction)
+			if *tx.Data.Symbol != ms.config.GetString(`minterApi.baseCoin`) {
+				ms.createFromTransaction(&transaction)
+			}
 		}
 
 		if tx.Type == models.TX_TYPE_SELL_COIN {
