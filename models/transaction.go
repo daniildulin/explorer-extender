@@ -21,8 +21,9 @@ const TX_TYPE_SET_CANDIDATE_ONLINE = 10
 const TX_TYPE_SET_CANDIDATE_OFFLINE = 11
 const TX_TYPE_MULTI_SIG = 12
 const TX_TYPE_MULTI_SEND = 13
+const TX_TYPE_EDIT_CANDIDATE = 14
 
-var txType = [14]string{
+var txType = [15]string{
 	`-`,
 	`send`,
 	`sellCoin`,
@@ -37,6 +38,7 @@ var txType = [14]string{
 	`setCandidateOffData`,
 	`multiSig`,
 	`multiSend`,
+	`editCandidate`,
 }
 
 type Transaction struct {
@@ -74,6 +76,8 @@ type Transaction struct {
 	Name                 *string         `json:"name"`
 	Log                  *string         `json:"log"`
 	Status               bool            `json:"status"`
+	RewardAddress        *string         `json:"reward_address"         gorm:"type:varchar(50)"`
+	OwnerAddress         *string         `json:"owner_address"          gorm:"type:varchar(50)"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	DeletedAt            *time.Time
@@ -212,7 +216,19 @@ func (tx Transaction) GetResponse() *TransactionResponse {
 		}
 	}
 
-	r := &TransactionResponse{
+	if tx.Type == TX_TYPE_EDIT_CANDIDATE {
+		if tx.PubKey != nil {
+			data[`pub_key`] = *tx.PubKey
+		}
+		if tx.RewardAddress != nil {
+			data[`reward_address`] = *tx.RewardAddress
+		}
+		if tx.OwnerAddress != nil {
+			data[`owner_address`] = *tx.OwnerAddress
+		}
+	}
+
+	return &TransactionResponse{
 		tx.ID,
 		tx.Hash,
 		tx.Nonce,
@@ -225,6 +241,4 @@ func (tx Transaction) GetResponse() *TransactionResponse {
 		tx.From,
 		data,
 	}
-
-	return r
 }

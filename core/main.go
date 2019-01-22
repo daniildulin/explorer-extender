@@ -297,6 +297,8 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			Status:               status,
 			Threshold:            nil,
 			Log:                  tx.Log,
+			RewardAddress:        tx.Data.RewardAddress,
+			OwnerAddress:         tx.Data.OwnerAddress,
 		}
 
 		if tx.Data.Commission != nil {
