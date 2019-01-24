@@ -356,13 +356,16 @@ func (ms *MinterService) getTransactionModelsFromApiData(response *responses.Blo
 			helpers.CheckErr(err)
 			sender, err := c.Sender()
 			helpers.CheckErr(err)
+
+			val := helpers.PipValueToCoin(c.Value.String())
+
 			bCheck, err := json.Marshal(struct {
 				Nonce    uint64 `json:"nonce"`
 				DueBlock uint64 `json:"due_block"`
 				Coin     string `json:"coin"`
 				Value    string `json:"value"`
 				Sender   string `json:"sender"`
-			}{c.Nonce, c.DueBlock, c.Coin.String(), c.Value.String(), sender.String()})
+			}{c.Nonce, c.DueBlock, c.Coin.String(), val.String(), sender.String()})
 			helpers.CheckErr(err)
 			strCheck := string(bCheck)
 			jsonCheck := postgres.Jsonb{json.RawMessage(strCheck)}
